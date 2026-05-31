@@ -110,29 +110,15 @@
             let logisticaCargada = false;
             let comprasCargadas = false;
  
-            function actualizarUICompleta() {
+            function _actualizarUILocalInner() {
                 if (!logisticaCargada || !comprasCargadas) return;
-                // Sanear precioTotal en todas las compras
-                compras.forEach(c => {
-                    if (typeof c.precioTotal !== 'number' || isNaN(c.precioTotal)) {
-                        c.precioTotal = (parseFloat(c.precio) || 0) * (parseInt(c.cantidad) || 1);
-                    }
-                });
-                actualizarTablaLogistica();
-                actualizarListaProductos();
-                actualizarTablaCompradores();
-                actualizarVentasTotales();
-                actualizarResumenCompradoras();
-                actualizarRifaCompras();
-                renderRifaCompras();
-                actualizarTablaCuentas();
-                actualizarDashboard();
+                actualizarUICompleta();
             }
  
             tx.objectStore('logistica').getAll().onsuccess = (e) => {
                 logistica = e.target.result || [];
                 logisticaCargada = true;
-                _actualizarUILocal();
+                _actualizarUILocalInner();
             };
  
             tx.objectStore('compras').getAll().onsuccess = (e) => {
@@ -141,7 +127,7 @@
                     if (!c.fecha) c.fecha = new Date().toISOString();
                 });
                 comprasCargadas = true;
-                _actualizarUILocal();
+                _actualizarUILocalInner();
             };
  
             const cfg = tx.objectStore('configuracion');
