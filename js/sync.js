@@ -31,6 +31,10 @@ let _driveDebounce = null;
 // ============================================================
  
 async function inicializarFirebase() {
+    // Mostrar login inmediatamente mientras carga Firebase
+    const overlay = document.getElementById('loginOverlay');
+    if (overlay) overlay.style.display = 'flex';
+ 
     // Cargar Firebase SDK dinámicamente
     await Promise.all([
         _loadScript('https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js'),
@@ -38,7 +42,12 @@ async function inicializarFirebase() {
         _loadScript('https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js'),
     ]);
  
-    firebase.initializeApp(FIREBASE_CONFIG);
+    // Limpiar sesión vieja de Drive si existe
+    localStorage.removeItem('driveAccessToken');
+ 
+    if (!firebase.apps.length) {
+        firebase.initializeApp(FIREBASE_CONFIG);
+    }
     _db = firebase.firestore();
     _auth = firebase.auth();
  
@@ -218,4 +227,3 @@ function _setSyncStatus(estado) {
     el.innerHTML = estados[estado] || estados.ok;
     el.style.background = estado === 'error' ? 'rgba(200,50,50,0.8)' : 'rgba(0,0,0,0.6)';
 }
- 
