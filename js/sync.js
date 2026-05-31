@@ -1,7 +1,3 @@
-// ============================================================
-// sync.js — Sincronización con Google Drive (fuente principal)
-// ============================================================
-
 const GOOGLE_CLIENT_ID = '875718815413-vdd9n0bj044nr5jbntla3etre3f6gjfq.apps.googleusercontent.com';
 const DRIVE_FILE_NAME = 'novedades_kika_datos.json';
 
