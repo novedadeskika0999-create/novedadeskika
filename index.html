@@ -1,0 +1,923 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Novedades Kika – Gestión Integral</title>
+    <link id="favicon" rel="icon" href="" type="image/x-icon">
+
+    <!-- Fuentes -->
+    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600&family=DM+Serif+Display:ital@0;1&display=swap" rel="stylesheet">
+
+    <!-- Iconos -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
+    <!-- Librerías para PDF y Excel -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.25/jspdf.plugin.autotable.min.js"></script>
+
+    <!-- Chart.js para gráficos -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.0.0"></script>
+
+    <!-- Google Identity Services -->
+    <script src="https://accounts.google.com/gsi/client" async defer></script>
+
+    <!-- Estilos -->
+    <link rel="stylesheet" href="css/styles.css">
+
+    <!-- Estilo adicional para filtros avanzados (no estaba en el CSS original) -->
+    <style>
+        .filtros-avanzados {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+            gap: 16px;
+            margin-bottom: 16px;
+            align-items: end;
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-lg);
+            padding: 20px;
+            box-shadow: var(--shadow-sm);
+        }
+    </style>
+</head>
+
+<body>
+
+<!-- Login Overlay -->
+<div id="loginOverlay" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.85); z-index:99999; flex-direction:column; align-items:center; justify-content:center; gap:20px;">
+    <div style="background:var(--card-bg, #fff); border-radius:16px; padding:40px; text-align:center; max-width:340px; width:90%; box-shadow:0 8px 32px rgba(0,0,0,0.3);">
+        <h2 style="margin:0 0 8px; font-size:1.4rem;">Novedades Kika</h2>
+        <p style="margin:0 0 24px; color:#666; font-size:0.9rem;">Inicia sesión para continuar</p>
+        <button onclick="loginGoogle()" style="background:#4285f4; color:white; border:none; border-radius:8px; padding:12px 24px; font-size:1rem; cursor:pointer; display:flex; align-items:center; gap:10px; margin:0 auto;">
+            <i class="fab fa-google"></i> Entrar con Google
+        </button>
+    </div>
+</div>
+
+<!-- Barra de estado sync -->
+<div style="position:fixed; bottom:12px; right:12px; z-index:9999; display:flex; align-items:center; gap:12px;">
+    <span id="syncStatus" class="sync-ok" style="background:rgba(0,0,0,0.6); color:white; padding:6px 12px; border-radius:20px; font-size:0.78rem;">
+        <i class="fas fa-cloud"></i> Sincronizado
+    </span>
+    <div style="position:relative; display:inline-block;">
+        <span id="usuarioNombre" style="background:rgba(0,0,0,0.6); color:white; padding:6px 12px; border-radius:20px; font-size:0.78rem; cursor:pointer;" onclick="toggleMenuUsuario()" title="Opciones de cuenta">
+            <i class="fas fa-user"></i>
+        </span>
+        <div id="menuUsuario" style="display:none; position:absolute; bottom:36px; right:0; background:white; border-radius:10px; box-shadow:0 4px 16px rgba(0,0,0,0.2); overflow:hidden; min-width:160px; z-index:99999;">
+            <button onclick="cambiarCuentaGoogle()" style="display:block; width:100%; padding:10px 16px; border:none; background:none; cursor:pointer; text-align:left; font-size:0.85rem; border-bottom:1px solid #eee;">
+                <i class="fas fa-sync" style="margin-right:8px; color:#4285f4;"></i> Cambiar cuenta
+            </button>
+            <button onclick="logoutGoogle()" style="display:block; width:100%; padding:10px 16px; border:none; background:none; cursor:pointer; text-align:left; font-size:0.85rem; color:#e53e3e;">
+                <i class="fas fa-sign-out-alt" style="margin-right:8px;"></i> Cerrar sesión
+            </button>
+        </div>
+    </div>
+</div>
+<!-- Toast Container -->
+    <div id="toast-container"></div>
+    
+    <!-- Botón de instalación PWA -->
+    <button id="install-pwa-btn" title="Instalar App">
+        <i class="fas fa-download"></i>
+    </button>
+
+    <!-- Modal para plantillas de factura -->
+    <div id="templateModal" class="modal">
+        <div class="modal-content">
+            <button class="modal-close" onclick="closeTemplateModal()"><i class="fas fa-times"></i></button>
+            <h2><i class="fas fa-file-invoice" style="margin-right: 10px;"></i>Seleccione una plantilla para la factura</h2>
+            <div class="template-selector" id="templateSelector">
+                <!-- Las plantillas se cargarán dinámicamente -->
+            </div>
+            <div class="form-actions" style="margin-top: 20px;">
+                <button onclick="selectTemplate()" class="btn-primary">Seleccionar Plantilla</button>
+                <button onclick="closeTemplateModal()" class="btn-secondary">Cancelar</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal para visualización de plantillas -->
+    <div id="templatePreviewModal" class="modal">
+        <div class="modal-content" style="max-width: 1200px;">
+            <button class="modal-close" onclick="closeTemplatePreviewModal()"><i class="fas fa-times"></i></button>
+            <h2><i class="fas fa-eye" style="margin-right: 10px;"></i>Vista Previa de Plantillas de Factura</h2>
+            <p style="margin-bottom: 20px; color: var(--text-secondary);">Seleccione una plantilla para ver su vista previa detallada:</p>
+            <div class="template-selector" id="templatePreviewSelector">
+                <!-- Las plantillas se cargarán dinámicamente -->
+            </div>
+            <div id="templatePreviewContainer" style="margin-top: 20px;">
+                <!-- La vista previa se cargará aquí -->
+            </div>
+            <div class="form-actions" style="margin-top: 20px;">
+                <button onclick="selectTemplateFromPreview()" class="btn-primary">Seleccionar Plantilla</button>
+                <button onclick="closeTemplatePreviewModal()" class="btn-secondary">Cancelar</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal para secuencia de factura -->
+    <div id="secFacturaModal" class="modal">
+        <div class="modal-content">
+            <button class="modal-close" onclick="closeSecFacturaModal()"><i class="fas fa-times"></i></button>
+            <h2><i class="fas fa-hashtag" style="margin-right: 10px;"></i>Configurar Secuencia de Factura</h2>
+            <div class="sec-factura-container">
+                <p style="margin-bottom: 15px; color: var(--text-secondary);">Configura el prefijo para tus facturas. Este prefijo no se eliminará al borrar datos.</p>
+                <div class="sec-factura-inputs">
+                    <input type="text" id="secFacturaPrefijo" placeholder="Ej: FACT, INV, KIKA-2024" value="">
+                    <button onclick="generarEjemploSecuencia()" class="btn-secondary">Generar Ejemplo</button>
+                </div>
+                <div id="ejemploSecuencia" style="margin-top: 15px; padding: 10px; background: var(--surface-2); border-radius: var(--radius); text-align: center; font-weight: bold;"></div>
+                <p style="margin-top: 15px; color: var(--text-secondary);"><strong>Ejemplos predefinidos:</strong></p>
+                <div class="ejemplos-secuencia" id="ejemplosSecuencia">
+                    <!-- Los ejemplos se cargarán dinámicamente -->
+                </div>
+                <div class="form-actions" style="margin-top: 20px;">
+                    <button onclick="guardarSecuenciaFactura()" class="btn-primary">Guardar Secuencia</button>
+                    <button onclick="eliminarSecuenciaFactura()" class="btn-danger">Eliminar Secuencia</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal para manual de usuario -->
+    <div id="manualModal" class="modal">
+        <div class="modal-content">
+            <button class="modal-close" onclick="closeManualModal()"><i class="fas fa-times"></i></button>
+            <div class="manual-container">
+                <h2><i class="fas fa-book" style="margin-right: 10px;"></i>Manual de Usuario</h2>
+                <div id="manualContent">
+                    <!-- Contenido del manual se cargará dinámicamente -->
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal para confirmaciones -->
+    <div id="confirmModal" class="modal">
+        <div class="modal-content">
+            <button class="modal-close" onclick="closeConfirmModal()"><i class="fas fa-times"></i></button>
+            <h2 id="confirmTitle">Confirmar Acción</h2>
+            <p id="confirmMessage">¿Está seguro de realizar esta acción?</p>
+            <div class="form-actions" style="margin-top: 20px;">
+                <button id="confirmYes" class="btn-primary">Sí</button>
+                <button id="confirmNo" class="btn-secondary" onclick="closeConfirmModal()">No</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- -- HEADER -- -->
+    <header>
+        <div class="header-inner">
+            <img id="headerLogo" src="" alt="Logo Novedades Kika">
+            <div class="header-text">
+                <h1><i class="fas fa-shopping-bag" style="font-size:1.1rem; margin-right:10px; opacity:0.7;"></i><span id="txtTitulo">Novedades Kika</span></h1>
+                <p><span id="txtSubtitulo">Plataforma de registro y compra de productos para empleados. [Versión 9.0]</span></p>
+            </div>
+            <div class="header-actions">
+                <button id="theme-toggle" onclick="toggleTheme()">
+                    <i class="fas fa-moon"></i> <span id="txtModoOscuro">Modo Oscuro</span>
+                </button>
+                <button class="header-btn" onclick="triggerCarga()">
+                    <i class="fas fa-file-upload"></i> <span id="txtCargar">Cargar</span>
+                </button>
+                <button class="header-btn" onclick="guardarInformacion()">
+                    <i class="fas fa-save"></i> <span id="txtGuardar">Guardar</span>
+                </button>
+                <button class="header-btn" onclick="openManualModal()">
+                    <i class="fas fa-question-circle"></i> <span id="txtAyuda">Ayuda</span>
+                </button>
+                <button id="menu-toggle" class="header-btn" onclick="toggleMenu()">
+                    <i class="fas fa-bars"></i> <span>Menú</span>
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- -- NAV -- -->
+    <div class="nav-wrapper">
+        <nav>
+            <ul>
+                <li><a href="#" onclick="cambiarPestana('logistica')" id="nav-logistica"><i class="fas fa-boxes"></i><span id="txtLogistica">Logística</span></a></li>
+                <li><a href="#" onclick="cambiarPestana('compras')" id="nav-compras"><i class="fas fa-shopping-cart"></i><span id="txtCompras">Realizar Compra</span></a></li>
+                <li><a href="#" onclick="cambiarPestana('rifaCompartidas')" id="nav-rifaCompartidas"><i class="fas fa-gift"></i><span id="txtRifaCompartidas">Ruleta Compartidas</span></a></li>
+                <li><a href="#" onclick="cambiarPestana('rifaCompras')" id="nav-rifaCompras"><i class="fas fa-gifts"></i><span id="txtRifaCompras">Ruleta Compras</span></a></li>
+                <li><a href="#" onclick="cambiarPestana('resumenCompradoras')" id="nav-resumenCompradoras"><i class="fas fa-users"></i><span id="txtResumenCompradoras">Resumen</span></a></li>
+                <li><a href="#" onclick="cambiarPestana('cuenta')" id="nav-cuenta"><i class="fas fa-file-invoice"></i><span id="txtCuenta">Cuenta</span></a></li>
+                <li><a href="#" onclick="cambiarPestana('dashboard')" id="nav-dashboard"><i class="fas fa-chart-line"></i><span id="txtDashboard">Dashboard</span></a></li>
+                <li><a href="#" onclick="cambiarPestana('ajustes')" id="nav-ajustes"><i class="fas fa-cog"></i><span id="txtAjustes">Ajustes</span></a></li>
+            </ul>
+        </nav>
+    </div>
+
+    <div class="main-container"><!-- -- LOGÍSTICA -- -->
+        <div id="logistica" class="tab-content">
+            <div class="section-header">
+                <div class="section-title">
+                    <div class="section-icon"><i class="fas fa-boxes"></i></div>
+                    <h2><span id="txtTituloLogistica">Logística: Registro de Productos</span></h2>
+                </div>
+                <div class="flex-row" style="gap: 10px;">
+                    <button onclick="exportarProductosAExcel()" class="btn-secondary">
+                        <i class="fas fa-file-excel"></i> <span>Exportar a Excel</span>
+                    </button>
+                </div>
+            </div>
+
+            <div class="card">
+                <div class="card-title">Nuevo Producto</div>
+                <form id="formLogistica" onkeydown="manejarTecladoLogistica(event)">
+                    <div class="form-grid">
+                        <div class="form-group">
+                            <label for="nombreProductoLogistica" id="txtNombreProducto">Nombre del Producto</label>
+                            <input type="text" id="nombreProductoLogistica" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="precioUnitario" id="txtPrecioUnitario">Precio Unitario</label>
+                            <input type="number" id="precioUnitario" step="0.01" min="0" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="precioCosto" id="txtPrecioCosto">Precio de Costo</label>
+                            <input type="number" id="precioCosto" step="0.01" min="0" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="cantidadProducto" id="txtCantidadProducto">Cantidad</label>
+                            <input type="number" id="cantidadProducto" min="1" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="tamanoProducto" id="txtTamanoProducto">Tamaño del Producto</label>
+                            <select id="tamanoProducto" required>
+                                <option value="" id="txtSeleccioneTamano">Seleccione un tamaño</option>
+                                <option value="pequeño" id="txtTamanoPequeno">Pequeño</option>
+                                <option value="mediano" id="txtTamanoMediano">Mediano</option>
+                                <option value="grande" id="txtTamanoGrande">Grande</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label for="especificacionesProductoLogistica" id="txtEspecificacionesProducto">Especificaciones (ej: rojo, azul)</label>
+                            <input type="text" id="especificacionesProductoLogistica" placeholder="Separar por comas">
+                        </div>
+                        <div class="form-group">
+                            <label for="categoriaProducto" id="txtCategoriaProducto">Categoría</label>
+                            <select id="categoriaProducto">
+                                <option value="">Sin categoría</option>
+                                <option value="Ropa">Ropa</option>
+                                <option value="Electrónicos">Electrónicos</option>
+                                <option value="Alimentos">Alimentos</option>
+                                <option value="Otros">Otros</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label for="stockMinimo" id="txtStockMinimo">Stock Mínimo</label>
+                            <input type="number" id="stockMinimo" min="0" value="0">
+                        </div>
+                    </div>
+                    <div class="form-actions">
+                        <button type="button" onclick="agregarProductoLogistica()" class="btn-primary" id="btnAgregarProducto">
+                            <i class="fas fa-plus"></i> <span id="txtAgregarProducto">Agregar Producto</span>
+                        </button>
+                    </div>
+                </form>
+            </div>
+
+            <div class="filtros-avanzados">
+                <div class="form-group">
+                    <label for="buscadorProducto">Buscar producto</label>
+                    <div style="position: relative;">
+                        <div class="search-bar">
+                            <i class="fas fa-search"></i>
+                            <input type="text" class="search-input" id="buscadorProducto" placeholder="Buscar por nombre..." onkeydown="manejarTeclaBusqueda(event, 'buscadorProducto', 'buscarProducto')">
+                        </div>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label for="minPrecioBusqueda">Precio mínimo</label>
+                    <input type="number" id="minPrecioBusqueda" placeholder="0" step="0.01">
+                </div>
+                <div class="form-group">
+                    <label for="maxPrecioBusqueda">Precio máximo</label>
+                    <input type="number" id="maxPrecioBusqueda" placeholder="1000" step="0.01">
+                </div>
+                <div class="form-group">
+                    <label for="filtroTamanoBusqueda">Tamaño</label>
+                    <select id="filtroTamanoBusqueda">
+                        <option value="">Todos</option>
+                        <option value="pequeño">Pequeño</option>
+                        <option value="mediano">Mediano</option>
+                        <option value="grande">Grande</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="filtroCategoriaBusqueda">Categoría</label>
+                    <select id="filtroCategoriaBusqueda">
+                        <option value="">Todas</option>
+                        <option value="Ropa">Ropa</option>
+                        <option value="Electrónicos">Electrónicos</option>
+                        <option value="Alimentos">Alimentos</option>
+                        <option value="Otros">Otros</option>
+                    </select>
+                </div>
+                <button onclick="buscarProductoAvanzado()" class="btn-primary" style="align-self: flex-end; margin-top: 22px;">
+                    <i class="fas fa-search"></i> <span id="txtBuscarProducto">Buscar</span>
+                </button>
+            </div>
+            <div id="resultadoBusquedaProducto" class="result-box"></div>
+
+            <p style="font-size:0.8rem; font-weight:600; text-transform:uppercase; letter-spacing:0.07em; color:var(--text-muted); margin: 20px 0 8px;">
+                <i class="fas fa-list" style="margin-right:6px;"></i><span id="txtProductosEnLogistica">Productos en Logística</span>
+            </p>
+            <div class="table-wrapper">
+                <table id="tablaLogistica">
+                    <thead>
+                        <tr>
+                            <th id="txtNombreTabla">Nombre</th>
+                            <th id="txtPrecioUnitarioTabla">Precio Unit.</th>
+                            <th id="txtPrecioCostoTabla">Precio Costo</th>
+                            <th id="txtCantidadTabla">Cantidad</th>
+                            <th id="txtStockTabla">Stock</th>
+                            <th id="txtTamanoTabla">Tamaño</th>
+                            <th id="txtCategoriaTabla">Categoría</th>
+                            <th id="txtGananciaTabla">Ganancia</th>
+                            <th id="txtEspecificacionesTabla">Especificaciones</th>
+                            <th id="txtAccionesTabla">Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody id="tbodyLogistica"></tbody>
+                </table>
+            </div>
+
+            <div class="stats-grid" id="totalesLogistica">
+                <div class="stat-card">
+                    <div class="stat-label"><i class="fas fa-coins"></i><span id="txtTotalGanancias">Total Ganancias</span></div>
+                    <div class="stat-value" id="totalGanancias">$0.00</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-label"><i class="fas fa-money-bill-wave"></i><span id="txtTotalInversion">Total Inversión</span></div>
+                    <div class="stat-value" id="totalInversion">$0.00</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-label"><i class="fas fa-hand-holding-usd"></i><span id="txtGastosExtra">Gastos Extra</span></div>
+                    <div class="stat-value" id="gastosExtra">$0.00</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-label"><i class="fas fa-boxes"></i><span id="txtTotalProductos">Total Productos</span></div>
+                    <div class="stat-value" id="totalProductos">0</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-label"><i class="fas fa-box-open"></i><span id="txtValorSobrante">Valor Sobrante</span></div>
+                    <div class="stat-value" id="valorSobrante">$0.00</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-label"><i class="fas fa-exclamation-triangle"></i><span id="txtStockBajo">Stock Bajo</span></div>
+                    <div class="stat-value" id="stockBajo">0</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- -- COMPRAS -- -->
+        <div id="compras" class="tab-content">
+            <div class="section-header">
+                <div class="section-title">
+                    <div class="section-icon"><i class="fas fa-shopping-cart"></i></div>
+                    <h2><span id="txtTituloCompras">Realizar Compra</span></h2>
+                </div>
+                <div class="flex-row" style="gap: 10px;">
+                    <button onclick="exportarComprasAExcel()" class="btn-secondary">
+                        <i class="fas fa-file-excel"></i> <span>Exportar Compras</span>
+                    </button>
+                </div>
+            </div>
+
+            <div class="card">
+                <div class="card-title">Nueva Compra</div>
+                <form id="formCompras" onkeydown="manejarTecladoCompras(event)">
+                    <div class="form-grid">
+                        <div class="form-group">
+                            <label for="comprador" id="txtNombreComprador">Nombre del Comprador</label>
+                            <div style="position: relative;">
+                                <input type="text" id="comprador" oninput="autocompletarComprador(this)" onkeydown="manejarAutocompletarComprador(event)" required>
+                                <div id="sugerencias-comprador" class="autocomplete-items"></div>
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label for="productoCompra" id="txtSeleccionarProducto">Seleccionar Producto</label>
+                            <select id="productoCompra" required onchange="actualizarEspecificacionesCompra(); saveSelectedProducto();" onkeydown="manejarTecladoSelect(event, this)">
+                                <option value="" id="txtSeleccioneProducto">Seleccione un producto</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label for="especificacionCompra" id="txtEspecificacionCompra">Especificación</label>
+                            <select id="especificacionCompra" onkeydown="manejarTecladoSelect(event, this)">
+                                <option value="" id="txtNingunaEspecificacion">(ninguna)</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label for="cantidadCompra" id="txtCantidadCompra">Cantidad</label>
+                            <input type="number" id="cantidadCompra" min="1" required onkeydown="manejarTecladoCantidad(event)">
+                        </div>
+                        <div class="form-group">
+                            <label for="notasCompra" id="txtNotasCompra">Notas</label>
+                            <textarea id="notasCompra" rows="2" placeholder="Observaciones..." onkeydown="manejarTecladoNotas(event)"></textarea>
+                        </div>
+                    </div>
+                    <div class="form-actions">
+                        <button type="button" onclick="agregarCompra()" class="btn-primary" id="btnAgregarCompra">
+                            <i class="fas fa-plus"></i> <span id="txtAgregarCompra">Agregar Compra</span>
+                        </button>
+                        <button type="button" onclick="agregarRegalo()" class="btn-warning" id="btnAgregarRegalo">
+                            <i class="fas fa-gift"></i> <span id="txtAgregarRegalo">Agregar Regalo</span>
+                        </button>
+                    </div>
+                </form>
+            </div>
+
+            <div class="flex-row" style="margin-bottom: 16px; justify-content: space-between;">
+                <div>
+                    <p style="font-size:0.8rem; font-weight:600; text-transform:uppercase; letter-spacing:0.07em; color:var(--text-muted); margin-bottom:8px;">
+                        <i class="fas fa-users" style="margin-right:6px;"></i><span id="txtCompradoresYCompras">Compradores y sus Compras</span>
+                    </p>
+                    <div class="search-bar">
+                        <i class="fas fa-search"></i>
+                        <input type="text" class="search-input" id="buscador" placeholder="Buscar comprador..." onkeyup="filtrarCompradores()" onkeydown="manejarTeclaBusqueda(event, 'buscador', 'filtrarCompradores')">
+                    </div>
+                </div>
+                <div style="display:flex; gap:24px; align-items:center; flex-wrap:wrap;">
+                    <div>
+                        <p style="font-size:0.75rem; color:var(--text-muted); margin-bottom:4px; font-weight:500;">Tamaño de Bolsa</p>
+                        <input type="text" id="tamanoBolsaComprador" readonly style="width:140px; text-align:center; font-weight:600; background:var(--surface-2);">
+                    </div>
+                    <div>
+                        <p style="font-size:0.75rem; color:var(--text-muted); margin-bottom:4px; font-weight:500;">Suma Individual</p>
+                        <p id="sumaIndividual" style="font-weight:600; font-size:1.25rem; color:var(--accent);">$0.00</p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="table-wrapper">
+                <table id="tablaCompradores">
+                    <thead>
+                        <tr>
+                            <th>Marcar</th>
+                            <th>Nombre</th>
+                            <th>Producto</th>
+                            <th class="especificacion">Especificación</th>
+                            <th>Tamaño</th>
+                            <th>Precio</th>
+                            <th>Cantidad</th>
+                            <th>Total</th>
+                            <th>Notas</th>
+                            <th>Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody id="tbodyCompradores"></tbody>
+                </table>
+            </div>
+
+            <div class="divider"></div>
+
+            <div class="flex-row" style="justify-content: space-between; align-items: center; margin-bottom: 12px;">
+                <p style="font-size:0.95rem; font-weight:500;">
+                    <i class="fas fa-money-bill-wave" style="margin-right:8px; color:var(--accent);"></i>
+                    <span id="txtTotalVentas">Total de Ventas:</span>
+                    <strong id="totalVentasEmpresa" style="color:var(--accent); margin-left:8px; font-size:1.1rem;">$0.00</strong>
+                </p>
+            </div>
+
+            <div class="flex-row" style="margin-bottom:8px;">
+                <div class="search-bar">
+                    <i class="fas fa-search"></i>
+                    <input type="text" class="search-input" id="buscadorProductoCompras" placeholder="Buscar producto en compras..." onkeydown="manejarTeclaBusqueda(event, 'buscadorProductoCompras', 'buscarProductoCompras')">
+                </div>
+                <button type="button" onclick="buscarProductoCompras()" class="btn-secondary" id="btnBuscarProductoCompras">
+                    <i class="fas fa-search"></i> <span id="txtBuscarComprasProducto">Buscar Compras por Producto</span>
+                </button>
+            </div>
+            <div id="resultadoBusquedaProductoCompras" class="result-box"></div>
+        </div>
+
+        <!-- -- RESUMEN DE COMPRADORAS -- -->
+        <div id="resumenCompradoras" class="tab-content">
+            <div class="section-header">
+                <div class="section-title">
+                    <div class="section-icon"><i class="fas fa-users"></i></div>
+                    <h2><span id="txtTituloResumenCompradoras">Resumen de Compradoras</span></h2>
+                </div>
+                <div class="flex-row" style="gap: 10px;">
+                    <button onclick="exportarResumenCompradorasAExcel()" class="btn-secondary">
+                        <i class="fas fa-file-excel"></i> <span>Exportar a Excel</span>
+                    </button>
+                </div>
+            </div>
+
+            <div class="counters-row">
+                <div class="counter-chip">
+                    <i class="fas fa-check-circle" style="color:var(--success);"></i>
+                    <span id="txtMarcados">Marcados:</span>
+                    <span class="chip-num" id="contadorMarcados">0</span>
+                </div>
+                <div class="counter-chip">
+                    <i class="fas fa-times-circle" style="color:var(--danger);"></i>
+                    <span id="txtNoMarcados">No Marcados:</span>
+                    <span class="chip-num" id="contadorNoMarcados">0</span>
+                </div>
+                <div class="counter-chip">
+                    <i class="fas fa-exclamation-circle" style="color:var(--warning);"></i>
+                    <span id="txtFaltantes">Faltantes:</span>
+                    <span class="chip-num" id="contadorFaltantes">0</span>
+                </div>
+            </div>
+
+            <div class="flex-row" style="margin-bottom:16px;">
+                <label style="display:flex; align-items:center; gap:8px; cursor:pointer; font-size:0.88rem; font-weight:500; color:var(--text-secondary);">
+                    <input type="checkbox" id="mostrarSoloNoMarcados" onchange="filtrarResumenCompradoras()">
+                    <span id="txtMostrarNoMarcados">Mostrar solo no marcados</span>
+                </label>
+                <div class="search-bar">
+                    <i class="fas fa-search"></i>
+                    <input type="text" class="search-input" id="buscadorResumen" placeholder="Buscar compradora..." onkeyup="filtrarResumenCompradoras()" onkeydown="manejarTeclaBusqueda(event, 'buscadorResumen', 'filtrarResumenCompradoras')">
+                </div>
+            </div>
+
+            <div class="table-wrapper">
+                <table id="tablaResumenCompradoras">
+                    <thead>
+                        <tr>
+                            <th id="txtMarcarResumen">Marcar</th>
+                            <th id="txtCompradoraResumen">Compradora</th>
+                            <th id="txtTotalDineroResumen">Total en Dinero</th>
+                            <th id="txtTotalProductosResumen">Total Productos</th>
+                            <th id="txtTamanoBolsaResumen">Tamaño Bolsa</th>
+                            <th id="txtMejorResumen">Mejor</th>
+                            <th id="txtCuentaDescargadaResumen">Cuenta Descargada</th>
+                            <th id="txtAccionesResumen">Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody id="tbodyResumenCompradoras"></tbody>
+                </table>
+            </div>
+
+            <!-- Resumen por Producto -->
+            <div class="card" style="margin-top: 20px;">
+                <div class="section-header" style="margin-bottom: 0; padding-bottom: 0; border-bottom: none;">
+                    <div class="section-title" style="margin-bottom: 0;">
+                        <div class="section-icon"><i class="fas fa-chart-bar"></i></div>
+                        <h2 style="font-size: 1.2rem;">Resumen por Producto</h2>
+                    </div>
+                    <button onclick="exportarResumenProductoAExcel()" class="btn-secondary btn-sm">
+                        <i class="fas fa-file-excel"></i> Exportar
+                    </button>
+                </div>
+                <div class="table-wrapper">
+                    <table id="tablaResumenProducto">
+                        <thead>
+                            <tr>
+                                <th>Producto</th>
+                                <th>Categoría</th>
+                                <th>Cantidad Vendida</th>
+                                <th>Total</th>
+                                <th>Compradores</th>
+                            </tr>
+                        </thead>
+                        <tbody id="tbodyResumenProducto"></tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Gráfico de Ventas por Producto -->
+            <div class="card" style="margin-top: 20px;">
+                <div class="card-title">Ventas por Producto</div>
+                <div class="chart-container">
+                    <canvas id="graficoVentasPorProducto"></canvas>
+                </div>
+            </div>
+        </div>
+
+        <!-- -- RULETA COMPARTIDAS -- -->
+        <div id="rifaCompartidas" class="tab-content">
+            <div class="section-header">
+                <div class="section-title">
+                    <div class="section-icon"><i class="fas fa-gift"></i></div>
+                    <h2><span id="txtTituloRifaCompartidas">Ruleta Compartidas</span></h2>
+                </div>
+            </div>
+
+            <div class="ruleta-customization">
+                <h3><i class="fas fa-palette" style="margin-right: 8px;"></i>Personalizar Ruleta</h3>
+                <div class="color-options" id="colorOptionsRifaCompartidas">
+                    <!-- Los colores se cargarán dinámicamente -->
+                </div>
+            </div>
+
+            <form id="formRifa" onkeydown="manejarTecladoRifa(event)" onsubmit="agregarParticipante(); return false;" style="display:flex; gap:10px; max-width:480px; margin:0 auto 20px;">
+                <input type="text" id="nombreParticipante" placeholder="Nombre del participante" required style="flex:1;" oninput="autocompletarParticipante(this)" onkeydown="manejarAutocompletarParticipante(event)">
+                <div id="sugerencias-participante" class="autocomplete-items"></div>
+                <button type="submit" class="btn-primary">
+                    <i class="fas fa-plus"></i> <span id="txtAgregarParticipante">Agregar</span>
+                </button>
+            </form>
+
+            <!-- Ruleta Circular -->
+            <div class="ruleta-main-container">
+                <div class="ruleta-container-wrapper">
+                    <div class="ruleta-canvas-wrapper">
+                        <div class="ruleta-pointer-arrow">▼</div>
+                        <canvas id="ruleta-canvas" width="380" height="380" style="display:block;border-radius:50%;"></canvas>
+                    </div>
+                </div>
+                <div class="ruleta-results">
+                    <div id="mensajeRifa" class="ruleta-msg" style="display:none;"></div>
+                    <div class="ruleta-box" id="listaParticipantesContainer">
+                        <ul id="listaParticipantes"></ul>
+                    </div>
+                </div>
+            </div>
+
+            <div class="ruleta-buttons">
+                <button onclick="spinRoulette('gana')" id="btnGana" class="btn-success" style="padding:12px 28px;">
+                    <i class="fas fa-trophy"></i> <span id="txtGana">Gana</span>
+                </button>
+                <button onclick="spinRoulette('pierde')" id="btnPierde" class="btn-danger" style="padding:12px 28px;">
+                    <i class="fas fa-sad-tear"></i> <span id="txtPierde">Pierde</span>
+                </button>
+                <button id="btnLimpiarRifa" onclick="limpiarRifa()" class="btn-danger" style="padding:12px 28px;">
+                    <i class="fas fa-broom"></i> <span id="txtLimpiarRifa">Limpiar Ruleta</span>
+                </button>
+            </div>
+        </div>
+
+        <!-- -- RULETA COMPRAS -- -->
+        <div id="rifaCompras" class="tab-content">
+            <div class="section-header">
+                <div class="section-title">
+                    <div class="section-icon"><i class="fas fa-gifts"></i></div>
+                    <h2><span id="txtTituloRifaCompras">Ruleta Compras</span></h2>
+                </div>
+            </div>
+
+            <div class="ruleta-customization">
+                <h3><i class="fas fa-palette" style="margin-right: 8px;"></i>Personalizar Ruleta</h3>
+                <div class="color-options" id="colorOptionsRifaCompras">
+                    <!-- Los colores se cargarán dinámicamente -->
+                </div>
+            </div>
+
+            <div class="ruleta-main-container">
+                <div class="ruleta-container-wrapper">
+                    <div class="ruleta-canvas-wrapper">
+                        <div class="ruleta-pointer-arrow">▼</div>
+                        <canvas id="ruleta-canvas-compras" width="380" height="380" style="display:block;border-radius:50%;"></canvas>
+                    </div>
+                </div>
+                <div class="ruleta-results">
+                    <div id="mensajeRifaCompras" class="ruleta-msg" style="display:none;"></div>
+                    <div class="ruleta-box" id="listaRifaComprasContainer">
+                        <ul id="listaRifaCompras"></ul>
+                    </div>
+                </div>
+            </div>
+
+            <div class="ruleta-buttons">
+                <button onclick="spinRouletteCompras('gana')" id="btnGiraGana" class="btn-success" style="padding:12px 28px;">
+                    <i class="fas fa-trophy"></i> <span id="txtGiraGana">Gira Gana</span>
+                </button>
+                <button onclick="spinRouletteCompras('pierde')" id="btnGiraPierde" class="btn-danger" style="padding:12px 28px;">
+                    <i class="fas fa-sad-tear"></i> <span id="txtGiraPierde">Gira Pierde</span>
+                </button>
+                <button id="btnLimpiarRifaCompras" onclick="limpiarRifaCompras()" class="btn-danger" style="padding:12px 28px;">
+                    <i class="fas fa-broom"></i> <span id="txtLimpiarRifaCompras">Limpiar Ruleta</span>
+                </button>
+            </div>
+        </div>
+
+        <!-- -- CUENTA -- -->
+        <div id="cuenta" class="tab-content">
+            <div class="section-header">
+                <div class="section-title">
+                    <div class="section-icon"><i class="fas fa-file-invoice"></i></div>
+                    <h2><span id="txtTituloCuenta">Cuenta de Compradoras</span></h2>
+                </div>
+            </div>
+
+            <div class="flex-row" style="margin-bottom:20px;">
+                <div class="search-bar">
+                    <i class="fas fa-search"></i>
+                    <input type="text" class="search-input" id="buscadorCuenta" placeholder="Buscar compradora..." oninput="autocompletarCompradoraCuenta(this)" onkeydown="manejarAutocompletarCompradoraCuenta(event)" onblur="cerrarSugerenciasCuenta()">
+                    <div id="sugerencias-cuenta" class="autocomplete-items"></div>
+                </div>
+                <button type="button" onclick="openTemplatePreviewModal()" class="btn-secondary" id="btnSeleccionarPlantilla">
+                    <i class="fas fa-eye"></i> <span>Ver Plantillas</span>
+                </button>
+                <button type="button" onclick="openTemplateModal()" class="btn-secondary" id="btnSeleccionarPlantillaSimple">
+                    <i class="fas fa-file-alt"></i> <span>Seleccionar Plantilla</span>
+                </button>
+                <button type="button" onclick="buscarCuenta()" class="btn-primary" id="btnBuscarCuenta">
+                    <i class="fas fa-file-pdf"></i> <span id="txtDescargarCuenta">Descargar Cuenta</span>
+                </button>
+                <button type="button" onclick="openSecFacturaModal()" class="btn-secondary" id="btnConfigurarSecuencia">
+                    <i class="fas fa-hashtag"></i> <span>Configurar Secuencia</span>
+                </button>
+            </div>
+
+            <div class="descarga-masiva-container">
+                <h3><i class="fas fa-download" style="margin-right: 10px; color: var(--accent);"></i>Descargar Cuentas en Masivo</h3>
+                <div class="form-group">
+                    <label for="compradorasSeleccionadas">Seleccionar Compradoras</label>
+                    <select id="compradorasSeleccionadas" multiple style="height: 120px;">
+                        <!-- Opciones se llenarán dinámicamente -->
+                    </select>
+                </div>
+                <div class="form-actions" style="margin-top: 10px;">
+                    <button type="button" onclick="descargarCuentasSeleccionadas()" class="btn-primary">
+                        <i class="fas fa-file-pdf"></i> Descargar Cuentas Seleccionadas
+                    </button>
+                    <button type="button" onclick="seleccionarTodasCuentas()" class="btn-secondary">
+                        <i class="fas fa-check"></i> Seleccionar Todas
+                    </button>
+                    <button type="button" onclick="deseleccionarTodasCuentas()" class="btn-secondary">
+                        <i class="fas fa-times"></i> Deseleccionar Todas
+                    </button>
+                </div>
+            </div>
+
+            <p style="font-size:0.8rem; font-weight:600; text-transform:uppercase; letter-spacing:0.07em; color:var(--text-muted); margin-bottom:8px;">
+                <i class="fas fa-list" style="margin-right:6px;"></i><span id="txtListaCompradoras">Lista de Compradoras</span>
+            </p>
+            <div class="table-wrapper">
+                <table id="tablaCuentas">
+                    <thead>
+                        <tr>
+                            <th id="txtNombreCompradora">Nombre</th>
+                            <th id="txtTotalGastado">Total Gastado</th>
+                            <th id="txtCuentaDescargada">Cuenta Descargada</th>
+                            <th id="txtAccionesCuenta">Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody id="tbodyCuentas"></tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- -- DASHBOARD -- -->
+        <div id="dashboard" class="tab-content">
+            <div class="section-header">
+                <div class="section-title">
+                    <div class="section-icon"><i class="fas fa-chart-line"></i></div>
+                    <h2><span id="txtTituloDashboard">Dashboard</span></h2>
+                </div>
+            </div>
+            
+            <!-- Métricas principales -->
+            <div class="stats-grid" id="dashboardStats">
+                <div class="stat-card">
+                    <div class="stat-label"><i class="fas fa-money-bill-wave"></i><span id="txtTotalVentasDashboard">Ventas Totales</span></div>
+                    <div class="stat-value" id="totalVentasDashboard">$0.00</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-label"><i class="fas fa-boxes"></i><span id="txtProductosVendidos">Productos Vendidos</span></div>
+                    <div class="stat-value" id="productosVendidosDashboard">0</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-label"><i class="fas fa-users"></i><span id="txtCompradoresActivos">Compradores Activos</span></div>
+                    <div class="stat-value" id="compradoresActivosDashboard">0</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-label"><i class="fas fa-chart-bar"></i><span id="txtProductoMasVendido">Producto Más Vendido</span></div>
+                    <div class="stat-value" id="productoMasVendidoDashboard">—</div>
+                </div>
+            </div>
+
+            <!-- Gráficos -->
+            <div class="dashboard-grid">
+                <div class="chart-card">
+                    <h3><i class="fas fa-chart-pie" style="margin-right: 8px;"></i>Ventas por Producto</h3>
+                    <div class="chart-container">
+                        <canvas id="graficoVentasPorProductoDashboard"></canvas>
+                    </div>
+                </div>
+                <div class="chart-card">
+                    <h3><i class="fas fa-chart-line" style="margin-right: 8px;"></i>Ventas por Día</h3>
+                    <div class="chart-container">
+                        <canvas id="graficoVentasPorDia"></canvas>
+                    </div>
+                </div>
+                <div class="chart-card">
+                    <h3><i class="fas fa-chart-bar" style="margin-right: 8px;"></i>Top 5 Productos</h3>
+                    <div class="chart-container">
+                        <canvas id="graficoTopProductos"></canvas>
+                    </div>
+                </div>
+                <div class="chart-card">
+                    <h3><i class="fas fa-users" style="margin-right: 8px;"></i>Top 5 Compradores</h3>
+                    <div class="chart-container">
+                        <canvas id="graficoTopCompradores"></canvas>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- -- AJUSTES -- -->
+        <div id="ajustes" class="tab-content">
+            <div class="section-header">
+                <div class="section-title">
+                    <div class="section-icon"><i class="fas fa-cog"></i></div>
+                    <h2><span id="txtTituloAjustes">Ajustes</span></h2>
+                </div>
+            </div>
+
+            <div class="settings-group">
+                <h3><i class="fas fa-language"></i><span id="txtIdioma">Idioma</span></h3>
+                <div class="flex-row">
+                    <button onclick="cambiarIdioma('es')" class="btn-secondary"><span id="txtEspañol">Español</span></button>
+                    <button onclick="cambiarIdioma('en')" class="btn-secondary"><span id="txtIngles">English</span></button>
+                    <button onclick="cambiarIdioma('fr')" class="btn-secondary"><span id="txtFrances">Français</span></button>
+                </div>
+            </div>
+
+            <div class="settings-group">
+                <h3><i class="fas fa-image"></i><span id="txtLogoHeader">Logo del Header</span></h3>
+                <input type="file" id="logoInput" accept="image/*" style="display:none;">
+                <div class="flex-row">
+                    <button onclick="document.getElementById('logoInput').click()" class="btn-secondary">
+                        <i class="fas fa-upload"></i> <span id="txtSeleccionarLogo">Seleccionar Logo</span>
+                    </button>
+                    <button onclick="cargarLogo()" class="btn-primary">
+                        <i class="fas fa-save"></i> <span id="txtCargarLogo">Cargar Logo</span>
+                    </button>
+                </div>
+            </div>
+
+            <div class="settings-group">
+                <h3><i class="fas fa-palette"></i><span>Tema de Colores</span></h3>
+                <div class="flex-row" style="flex-wrap: wrap; gap: 10px;">
+                    <button onclick="cambiarTema('default')" class="btn-secondary" style="background: var(--blue-600); color: white;" title="Azul">Azul</button>
+                    <button onclick="cambiarTema('green')" class="btn-secondary" style="background: #059669; color: white;" title="Verde">Verde</button>
+                    <button onclick="cambiarTema('purple')" class="btn-secondary" style="background: #7c3aed; color: white;" title="Morado">Morado</button>
+                    <button onclick="cambiarTema('red')" class="btn-secondary" style="background: #dc2626; color: white;" title="Rojo">Rojo</button>
+                    <button onclick="cambiarTema('orange')" class="btn-secondary" style="background: #d97706; color: white;" title="Naranja">Naranja</button>
+                    <button onclick="cambiarTema('pink')" class="btn-secondary" style="background: #db2777; color: white;" title="Rosa">Rosa</button>
+                    <button onclick="cambiarTema('yellow')" class="btn-secondary" style="background: #ca8a04; color: white;" title="Amarillo">Amarillo</button>
+                    <button onclick="cambiarTema('cyan')" class="btn-secondary" style="background: #0891b2; color: white;" title="Cyan">Cyan</button>
+                    <button onclick="cambiarTema('gray')" class="btn-secondary" style="background: #4b5563; color: white;" title="Gris">Gris</button>
+                </div>
+            </div>
+
+            <div class="settings-group">
+                <h3><i class="fas fa-cloud"></i> Backup Automático</h3>
+                <div class="flex-row" style="flex-direction: column; gap: 10px;">
+                    <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
+                        <input type="checkbox" id="backupAuto" onchange="toggleBackupAuto()">
+                        <span>Activar backup automático cada </span>
+                        <input type="number" id="backupInterval" value="5" min="1" style="width: 60px;">
+                        <span> minutos</span>
+                    </label>
+                    <button onclick="realizarBackupManual()" class="btn-primary">
+                        <i class="fas fa-save"></i> Realizar Backup Ahora
+                    </button>
+                    <button onclick="restaurarBackup()" class="btn-secondary">
+                        <i class="fas fa-undo"></i> Restaurar Backup
+                    </button>
+                </div>
+            </div>
+
+            <div class="settings-group">
+                <h3><i class="fas fa-trash-alt" style="color:var(--danger);"></i><span id="txtZonaPeligro">Zona de Peligro</span></h3>
+                <button id="btnBorrarTodo" onclick="confirmarBorrarTodo()" class="btn-danger">
+                    <i class="fas fa-trash-alt"></i> <span id="txtBorrarTodo">Borrar Todo</span>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <input type="file" id="inputCarga" style="display:none" accept=".json,.xlsx,.xls" onchange="cargarInformacion(event)">
+    <input type="file" id="backupInput" style="display:none" accept=".json,.xlsx,.xls" onchange="restaurarBackupDesdeArchivo(event)">
+
+    <!-- Scripts — orden importa (config primero, luego dependencias) -->
+    <script src="js/config.js"></script>
+    <script src="js/utils.js"></script>
+    <script src="js/db.js"></script>
+    <script src="js/ui.js"></script>
+    <script src="js/logistica.js"></script>
+    <script src="js/compras.js"></script>
+    <script src="js/resumen.js"></script>
+    <script src="js/ruleta.js"></script>
+    <script src="js/cuenta.js"></script>
+    <script>
+        function toggleMenuUsuario() {
+            const menu = document.getElementById('menuUsuario');
+            menu.style.display = menu.style.display === 'none' ? 'block' : 'none';
+            setTimeout(() => {
+                document.addEventListener('click', function handler(e) {
+                    if (!e.target.closest('#menuUsuario') && e.target.id !== 'usuarioNombre') {
+                        menu.style.display = 'none';
+                    }
+                    document.removeEventListener('click', handler);
+                });
+            }, 100);
+        }
+    </script>
+    <script src="js/sync.js"></script>
+    <script src="js/init.js"></script>
+</body>
+</html>
