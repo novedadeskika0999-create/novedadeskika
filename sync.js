@@ -46,6 +46,9 @@ async function verificarSesionGuardada() {
     _db = firebase.firestore();
     _auth = firebase.auth();
  
+    // Manejar resultado de redirect (para GitHub Pages)
+    _auth.getRedirectResult().catch(() => {});
+ 
     // Firebase recuerda la sesión automáticamente (localStorage persistente)
     _auth.onAuthStateChanged(async (user) => {
         if (user) {
@@ -85,7 +88,8 @@ function _cargarScript(src) {
 function loginGoogle() {
     const provider = new firebase.auth.GoogleAuthProvider();
     provider.setCustomParameters({ prompt: 'select_account' });
-    _auth.signInWithPopup(provider).catch(e => mostrarToast('Error al entrar: ' + e.message, 'error'));
+    // Usar redirect en lugar de popup para compatibilidad con GitHub Pages
+    _auth.signInWithRedirect(provider).catch(e => mostrarToast('Error al entrar: ' + e.message, 'error'));
 }
  
 function cambiarCuentaGoogle() {
