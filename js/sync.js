@@ -25,6 +25,7 @@ let _usuarioActual = null;
 let _unsubscribe = null;
 let _guardando = false;
 let _driveDebounce = null;
+let _firestoreListo = false; // Bloquea guardados hasta que Firestore cargue
  
 // ============================================================
 // INICIALIZAR FIREBASE
@@ -146,6 +147,9 @@ function _escucharDatos() {
                 localStorage.setItem('compras', JSON.stringify(compras));
                 localStorage.setItem('logistica', JSON.stringify(logistica));
  
+                // Marcar Firestore como listo — ahora sí se pueden guardar cambios
+                _firestoreListo = true;
+ 
                 // Actualizar UI
                 if (typeof actualizarUICompleta === 'function') actualizarUICompleta();
             }
@@ -193,11 +197,17 @@ function guardarEnDrive() {
 }
  
 function guardarEnDriveConDebounce() {
+    if (!_firestoreListo) return; // No guardar hasta que Firestore haya cargado
     clearTimeout(_driveDebounce);
     _driveDebounce = setTimeout(() => guardarEnFirestore(), 800);
 }
  
+function guardarEnDrive() {
+    return guardarEnFirestore();
+}
+ 
 async function guardarEnFirestore() {
+    if (!_firestoreListo) return;
     await _subirDatos(compras, logistica);
 }
  
@@ -227,3 +237,4 @@ function _setSyncStatus(estado) {
     el.innerHTML = estados[estado] || estados.ok;
     el.style.background = estado === 'error' ? 'rgba(200,50,50,0.8)' : 'rgba(0,0,0,0.6)';
 }
+ 
