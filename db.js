@@ -1,51 +1,47 @@
 // ============================================================
 // db.js — IndexedDB, localStorage, backup automático
 // ============================================================
-
+ 
         function guardarEnDB() {
             if (!db) {
                 console.warn("IndexedDB no disponible, guardando en localStorage");
                 guardarDatosLocalStorage();
                 return;
             }
-
+ 
             // IMPORTANTE: usamos transacciones separadas para evitar que la transacción
             // se cierre automáticamente antes de que los clear().onsuccess terminen de agregar registros.
-
+ 
             // --- Transacción 1: logística y compras ---
             try {
                 const tx1 = db.transaction(['logistica', 'compras'], 'readwrite');
                 tx1.onerror = (e) => console.error("Error guardando datos:", e.target.error);
-
+ 
                 const ls = tx1.objectStore('logistica');
-                const cs = tx1.objectStore('compras');
-                let lsCleared = false;
-                let csCleared = false;
-
-                function doAddLogistica() {
+                const lsClear = ls.clear();
+                lsClear.onsuccess = () => {
                     logistica.forEach(p => {
                         try { ls.add(p); } catch(e) { console.error("Error al guardar producto:", e); }
                     });
-                }
-
-                function doAddCompras() {
+                };
+ 
+                const cs = tx1.objectStore('compras');
+                const csClear = cs.clear();
+                csClear.onsuccess = () => {
                     compras.forEach(c => {
                         try {
                             if (!c.fecha) c.fecha = new Date().toISOString();
                             cs.add(c);
                         } catch(e) { console.error("Error al guardar compra:", e); }
                     });
-                }
-
-                ls.clear().onsuccess = () => { doAddLogistica(); };
-                cs.clear().onsuccess = () => { doAddCompras(); };
-
+                };
+ 
                 tx1.oncomplete = () => {
                     // --- Transacción 2: configuración (solo después de que tx1 termine) ---
                     try {
                         const tx2 = db.transaction(['configuracion'], 'readwrite');
                         tx2.onerror = (e) => console.error("Error guardando configuración:", e.target.error);
-
+ 
                         const cfg = tx2.objectStore('configuracion');
                         cfg.put(inversionExtras, 'inversionExtras');
                         cfg.put(resumenMarcado, 'resumenMarcado');
@@ -64,7 +60,7 @@
                         cfg.put(numeroFacturaActual, 'numeroFacturaActual');
                         cfg.put(ruletaColorCompartidas, 'ruletaColorCompartidas');
                         cfg.put(ruletaColorCompras, 'ruletaColorCompras');
-
+ 
                         tx2.oncomplete = () => console.log("Datos guardados en IndexedDB correctamente");
                     } catch(e) {
                         console.error("Error en transacción de configuración:", e);
@@ -75,24 +71,45 @@
                 guardarDatosLocalStorage();
             }
         }
-
+ 
+        // --- Función global de actualización de UI (llamable desde sync.js) ---
+        function actualizarUICompleta() {
+            // Sanear precioTotal en todas las compras
+            compras.forEach(c => {
+                if (typeof c.precioTotal !== 'number' || isNaN(c.precioTotal)) {
+                    c.precioTotal = (parseFloat(c.precio) || 0) * (parseInt(c.cantidad) || 1);
+                }
+            });
+            _cargandoDatos = false;
+            actualizarTablaLogistica();
+            actualizarListaProductos();
+            actualizarTablaCompradores();
+            actualizarVentasTotales();
+            actualizarResumenCompradoras();
+            actualizarRifaCompras();
+            if (typeof renderRifaCompras === 'function') renderRifaCompras();
+            if (typeof renderRuleta === 'function') renderRuleta();
+            if (typeof renderRuletaCircular === 'function') renderRuletaCircular();
+            if (typeof renderRuletaCircularCompras === 'function') renderRuletaCircularCompras();
+            actualizarTablaCuentas();
+            actualizarDashboard();
+        }
+ 
         function cargarDatosDesdeDB() {
-            _cargandoDatos = true; // Bloquear guardados durante la carga
             if (!db) {
-                _cargandoDatos = false;
                 cargarDatosLocalStorage();
                 return;
             }
-
+ 
             const tx = db.transaction(['logistica', 'compras', 'configuracion'], 'readonly');
             tx.onerror = (e) => {
                 console.error("Error en transacción de carga:", e.target.error);
                 cargarDatosLocalStorage();
             };
-
+ 
             let logisticaCargada = false;
             let comprasCargadas = false;
-
+ 
             function actualizarUICompleta() {
                 if (!logisticaCargada || !comprasCargadas) return;
                 // Sanear precioTotal en todas las compras
@@ -101,8 +118,6 @@
                         c.precioTotal = (parseFloat(c.precio) || 0) * (parseInt(c.cantidad) || 1);
                     }
                 });
-                console.log('[DEBUG] actualizarUICompleta — compras.length:', compras.length);
-                _cargandoDatos = false; // Desbloquear guardados después de cargar UI
                 actualizarTablaLogistica();
                 actualizarListaProductos();
                 actualizarTablaCompradores();
@@ -113,25 +128,22 @@
                 actualizarTablaCuentas();
                 actualizarDashboard();
             }
-
+ 
             tx.objectStore('logistica').getAll().onsuccess = (e) => {
                 logistica = e.target.result || [];
                 logisticaCargada = true;
-                actualizarUICompleta();
+                _actualizarUILocal();
             };
-
+ 
             tx.objectStore('compras').getAll().onsuccess = (e) => {
-                // SIEMPRE usar localStorage como fuente de verdad.
-                // IndexedDB puede tener datos duplicados o incompletos por bugs previos.
-                compras = JSON.parse(localStorage.getItem('compras')) || [];
-                console.log('[DEBUG] compras cargadas desde localStorage:', compras.length);
+                compras = e.target.result || [];
                 compras.forEach(c => {
                     if (!c.fecha) c.fecha = new Date().toISOString();
                 });
                 comprasCargadas = true;
-                actualizarUICompleta();
+                _actualizarUILocal();
             };
-
+ 
             const cfg = tx.objectStore('configuracion');
             cfg.get('inversionExtras').onsuccess = (e) => {
                 inversionExtras = e.target.result || 0;
@@ -158,29 +170,14 @@
             cfg.get('ruletaColorCompartidas').onsuccess = (e) => { ruletaColorCompartidas = e.target.result || '#2563b0'; };
             cfg.get('ruletaColorCompras').onsuccess = (e) => { ruletaColorCompras = e.target.result || '#059669'; };
         }
-
+ 
         function guardarDatos() {
             if (db) guardarEnDB();
             guardarDatosLocalStorage();
-            // Sincronizar con Drive
-            if (typeof guardarEnDriveConDebounce === 'function' && typeof _accessToken !== 'undefined' && _accessToken) {
-                guardarEnDriveConDebounce();
-            }
         }
-
-        let _cargandoDatos = false; // Flag para bloquear guardado durante carga inicial
-
+ 
         function guardarDatosLocalStorage() {
-            if (_cargandoDatos) {
-                console.warn('[db] Guardado bloqueado durante carga inicial');
-                return;
-            }
             localStorage.setItem('compras', JSON.stringify(compras));
-            localStorage.setItem('ultimoGuardado', new Date().toISOString());
-            // Sincronizar con Google Drive si hay sesión activa
-            if (typeof guardarEnDriveConDebounce === 'function' && typeof _accessToken !== 'undefined' && _accessToken) {
-                guardarEnDriveConDebounce();
-            }
             localStorage.setItem('logistica', JSON.stringify(logistica));
             localStorage.setItem('inversionExtras', inversionExtras);
             localStorage.setItem('resumenMarcado', JSON.stringify(resumenMarcado));
@@ -201,7 +198,7 @@
             localStorage.setItem('ruletaColorCompartidas', ruletaColorCompartidas);
             localStorage.setItem('ruletaColorCompras', ruletaColorCompras);
         }
-
+ 
         function cargarDatosLocalStorage() {
             compras = JSON.parse(localStorage.getItem('compras')) || [];
             const logisticaLS = JSON.parse(localStorage.getItem('logistica')) || [];
@@ -230,17 +227,17 @@
             numeroFacturaActual = parseInt(localStorage.getItem('numeroFacturaActual')) || 1;
             ruletaColorCompartidas = localStorage.getItem('ruletaColorCompartidas') || '#2563b0';
             ruletaColorCompras = localStorage.getItem('ruletaColorCompras') || '#059669';
-
+ 
             document.getElementById('headerLogo').src = logoHeader;
             document.getElementById('favicon').href = logoHeader;
-
+ 
             cambiarIdioma(idiomaActual, true);
             cambiarTema(temaActual, true);
             if (isDarkMode) {
                 document.documentElement.setAttribute('data-theme', 'dark');
                 document.getElementById('theme-toggle').innerHTML = '<i class="fas fa-sun"></i> <span id="txtModoClaro">' + idiomas[idiomaActual].txtModoClaro + '</span>';
             }
-
+ 
             actualizarTablaLogistica();
             actualizarListaProductos();
             actualizarTablaCompradores();
@@ -256,26 +253,26 @@
             cargarPlantillasFactura();
             cargarVistaPreviaPlantillas();
             cargarManualUsuario();
-
+ 
             document.getElementById('secFacturaPrefijo').value = secuenciaFactura;
             generarEjemploSecuencia();
             cargarEjemplosSecuencia();
             cargarColoresRuleta();
-
+ 
             if (backupAutoActivo) {
                 document.getElementById('backupAuto').checked = true;
                 document.getElementById('backupInterval').value = backupIntervalMinutos;
                 iniciarBackupAuto();
             }
         }
-
+ 
         // --- Funciones de Backup Automático ---
         function toggleBackupAuto() {
             backupAutoActivo = document.getElementById('backupAuto').checked;
             backupIntervalMinutos = parseInt(document.getElementById('backupInterval').value) || 5;
             localStorage.setItem('backupAutoActivo', backupAutoActivo);
             localStorage.setItem('backupIntervalMinutos', backupIntervalMinutos);
-
+ 
             if (backupAutoActivo) {
                 iniciarBackupAuto();
                 mostrarToast('Backup automático activado cada ' + backupIntervalMinutos + ' minutos.', 'success');
@@ -286,7 +283,7 @@
             }
             guardarDatos();
         }
-
+ 
         function iniciarBackupAuto() {
             if (backupInterval) {
                 clearInterval(backupInterval);
@@ -295,37 +292,37 @@
                 backupInterval = setInterval(realizarBackupManual, backupIntervalMinutos * 60000);
             }
         }
-
+ 
         function realizarBackupManual() {
             if (!db) {
                 mostrarToast('IndexedDB no disponible para backup.', 'error');
                 return;
             }
-
+ 
             const tx = db.transaction(['logistica', 'compras', 'configuracion'], 'readonly');
             tx.onerror = (e) => {
                 console.error("Error al realizar backup:", e.target.error);
                 mostrarToast('Error al realizar backup automático.', 'error');
             };
-
+ 
             const datos = {
                 logistica: [],
                 compras: [],
                 configuracion: {}
             };
-
+ 
             tx.objectStore('logistica').getAll().onsuccess = (e) => {
                 datos.logistica = e.target.result || [];
             };
-
+ 
             tx.objectStore('compras').getAll().onsuccess = (e) => {
                 datos.compras = e.target.result || [];
             };
-
+ 
             const cfg = tx.objectStore('configuracion');
             const configKeys = ['inversionExtras', 'resumenMarcado', 'resumenManualOverrides', 'manualMarkCount', 'cuentasGeneradas', 'logoHeader', 'idioma', 'participantes', 'rifaCompras', 'tema', 'backupAutoActivo', 'backupIntervalMinutos', 'selectedTemplate', 'secuenciaFactura', 'numeroFacturaActual', 'ruletaColorCompartidas', 'ruletaColorCompras'];
             let configLoaded = 0;
-
+ 
             configKeys.forEach(key => {
                 cfg.get(key).onsuccess = (e) => {
                     datos.configuracion[key] = e.target.result;
@@ -336,36 +333,36 @@
                 };
             });
         }
-
+ 
         function guardarBackupEnDB(datos) {
             if (!db) {
                 mostrarToast('IndexedDB no disponible para guardar backup.', 'error');
                 return;
             }
-
+ 
             const tx = db.transaction(['backup'], 'readwrite');
             tx.onerror = (e) => {
                 console.error("Error al guardar backup:", e.target.error);
                 mostrarToast('Error al guardar backup.', 'error');
             };
-
+ 
             const backupStore = tx.objectStore('backup');
             const timestamp = new Date().toISOString();
             backupStore.put({ datos, timestamp }, timestamp);
-
+ 
             tx.oncomplete = () => {
                 mostrarToast('Backup realizado correctamente a las ' + new Date().toLocaleTimeString(), 'success');
             };
         }
-
+ 
         function restaurarBackup() {
             document.getElementById('backupInput').click();
         }
-
+ 
         function restaurarBackupDesdeArchivo(event) {
             const file = event.target.files[0];
             if (!file) return;
-
+ 
             const reader = new FileReader();
             reader.onload = (e) => {
                 try {
@@ -393,13 +390,13 @@
                             numeroFacturaActual = datos.configuracion.numeroFacturaActual || 1;
                             ruletaColorCompartidas = datos.configuracion.ruletaColorCompartidas || '#2563b0';
                             ruletaColorCompras = datos.configuracion.ruletaColorCompras || '#059669';
-
+ 
                             document.getElementById('headerLogo').src = logoHeader;
                             document.getElementById('favicon').href = logoHeader;
-
+ 
                             cambiarIdioma(idiomaActual, true);
                             cambiarTema(temaActual, true);
-
+ 
                             guardarDatos();
                             
                             // Actualizar todas las vistas
@@ -417,18 +414,18 @@
                             actualizarDashboard();
                             cargarPlantillasFactura();
                             cargarVistaPreviaPlantillas();
-
+ 
                             document.getElementById('secFacturaPrefijo').value = secuenciaFactura;
                             generarEjemploSecuencia();
                             cargarEjemplosSecuencia();
                             cargarColoresRuleta();
-
+ 
                             if (backupAutoActivo) {
                                 document.getElementById('backupAuto').checked = true;
                                 document.getElementById('backupInterval').value = backupIntervalMinutos;
                                 iniciarBackupAuto();
                             }
-
+ 
                             mostrarToast('Backup restaurado correctamente.', 'success');
                         }
                     } else {
@@ -440,5 +437,6 @@
             };
             reader.readAsText(file);
         }
-
+ 
         // --- Funciones de Pestañas ---
+ 
