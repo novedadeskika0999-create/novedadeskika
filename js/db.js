@@ -164,7 +164,7 @@ function guardarDatos() {
 }
 function guardarDatosLocalStorage() {
     if (typeof guardarEnDriveConDebounce === 'function') guardarEnDriveConDebounce();
-    localStorage.setItem('compras', JSON.stringify(compras));
+            localStorage.setItem('compras', JSON.stringify(compras));
             localStorage.setItem('logistica', JSON.stringify(logistica));
             localStorage.setItem('inversionExtras', inversionExtras);
             localStorage.setItem('resumenMarcado', JSON.stringify(resumenMarcado));
