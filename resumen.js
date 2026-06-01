@@ -65,7 +65,6 @@
                 tbody.appendChild(tr);
             }
 
-            guardarDatosConDebounce();
             actualizarContadores();
             actualizarTablaCuentas();
         }

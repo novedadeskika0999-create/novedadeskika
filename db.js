@@ -167,10 +167,6 @@
         }
 
         function guardarDatosLocalStorage() {
-            // Sincronizar con Firebase
-            if (typeof guardarEnDriveConDebounce === 'function') {
-                guardarEnDriveConDebounce();
-            }
             localStorage.setItem('compras', JSON.stringify(compras));
             localStorage.setItem('logistica', JSON.stringify(logistica));
             localStorage.setItem('inversionExtras', inversionExtras);
