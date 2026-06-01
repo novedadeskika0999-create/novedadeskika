@@ -1,6 +1,7 @@
 
 // ============================================================
 // sync.js — Firebase Firestore — Sincronización total en tiempo real
+// VERSIÓN CORREGIDA: Fix de snapshots bloqueados y sync bidireccional
 // ============================================================
  
 const FIREBASE_CONFIG = {
@@ -19,33 +20,42 @@ const CORREOS_AUTORIZADOS = [
     'mikyy0811@gmail.com',
 ];
  
-// Campos que NO se sincronizan (son por dispositivo)
-const CAMPOS_LOCALES = ['isDarkMode', 'tema', 'darkMode'];
- 
 let _db = null;
-let _auth = null;
 let _usuarioActual = null;
 let _unsubscribe = null;
 let _debounce = null;
 let _cargadoDeFirestore = false;
-let _pendienteGuardar = false;
+ 
+// FIX: Usamos un timestamp en lugar de un flag booleano.
+// Ignoramos snapshots SOLO si llegaron dentro de 800ms después de que nosotros guardamos.
 let _ultimoGuardadoMs = 0;
+const ECHO_WINDOW_MS = 800;
+ 
+// Variable necesaria para db.js (actualizarUICompleta la revisa)
+let _cargandoDatos = false;
  
 // ============================================================
-// INICIALIZAR — llamado desde init.js
+// INICIALIZAR
 // ============================================================
  
 async function verificarSesionGuardada() {
     localStorage.removeItem('driveAccessToken');
  
-    // Cargar Firebase SDKs (sin Auth — usamos PIN propio)
     await _cargarScript('https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js');
     await _cargarScript('https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js');
  
     if (!firebase.apps.length) firebase.initializeApp(FIREBASE_CONFIG);
     _db = firebase.firestore();
  
-    // Verificar sesión guardada
+    // Habilitar persistencia offline para que funcione sin internet
+    _db.enablePersistence({ synchronizeTabs: true }).catch(err => {
+        if (err.code === 'failed-precondition') {
+            console.warn('Persistencia offline: múltiples pestañas abiertas');
+        } else if (err.code === 'unimplemented') {
+            console.warn('Persistencia offline no disponible en este navegador');
+        }
+    });
+ 
     const sesionGuardada = localStorage.getItem('nk_sesion');
     if (sesionGuardada && CORREOS_AUTORIZADOS.includes(sesionGuardada)) {
         _usuarioActual = sesionGuardada;
@@ -68,10 +78,9 @@ function _cargarScript(src) {
 }
  
 // ============================================================
-// LOGIN / LOGOUT — Sistema de PIN (funciona en todos los dispositivos)
+// LOGIN / LOGOUT
 // ============================================================
  
-// PINes de acceso — cada uno corresponde a una cuenta
 const PINES_ACCESO = {
     '1111': 'novedadeskika0999@gmail.com',
     '2222': 'myk1xk@gmail.com',
@@ -103,6 +112,7 @@ function cambiarCuentaGoogle() {
 function logoutGoogle() {
     if (confirm('¿Cerrar sesión? Tus datos NO se borrarán.')) {
         _cargadoDeFirestore = false;
+        _cargandoDatos = false;
         _usuarioActual = null;
         localStorage.removeItem('nk_sesion');
         if (_unsubscribe) { _unsubscribe(); _unsubscribe = null; }
@@ -112,7 +122,7 @@ function logoutGoogle() {
 }
  
 // ============================================================
-// ESCUCHAR CAMBIOS EN TIEMPO REAL
+// ESCUCHAR CAMBIOS EN TIEMPO REAL — FIX PRINCIPAL
 // ============================================================
  
 function _escucharCambios() {
@@ -121,25 +131,29 @@ function _escucharCambios() {
  
     _unsubscribe = _db.collection('datos').doc('principal')
         .onSnapshot({ includeMetadataChanges: false }, async (doc) => {
+ 
+            // FIX: Solo ignorar el snapshot si acabamos de guardar nosotros (eco propio)
+            // Si ha pasado más de ECHO_WINDOW_MS, SIEMPRE procesar el snapshot
+            const ahora = Date.now();
+            const esEchoPropio = (ahora - _ultimoGuardadoMs) < ECHO_WINDOW_MS;
+ 
             if (!doc.exists) {
-                // Primera vez — subir todo lo que haya en localStorage
+                // Primera vez — subir datos locales
                 await _subirDatosLocales();
                 _cargadoDeFirestore = true;
                 _setSyncStatus('ok');
                 return;
             }
  
-            // Solo ignorar snapshot si acabamos de guardar (menos de 500ms)
-            const ahorita = Date.now();
-            if (_pendienteGuardar && (ahorita - _ultimoGuardadoMs) < 500) {
+            // Si es eco inmediato de nuestro propio guardado, ignorar
+            if (esEchoPropio) {
                 _setSyncStatus('ok');
                 return;
             }
-            _pendienteGuardar = false;
  
+            // SIEMPRE aplicar datos de Firestore — vienen de otro dispositivo o usuario
             const d = doc.data();
  
-            // Actualizar todas las variables globales
             compras                = d.compras || [];
             logistica              = d.logistica || [];
             participantes          = d.participantes || [];
@@ -152,6 +166,7 @@ function _escucharCambios() {
             selectedTemplate       = d.selectedTemplate || 'plantilla1';
             secuenciaFactura       = d.secuenciaFactura || 'FACT-';
             numeroFacturaActual    = d.numeroFacturaActual || 1;
+ 
             if (d.logoHeader) {
                 logoHeader = d.logoHeader;
                 const img = document.getElementById('headerLogo');
@@ -160,12 +175,10 @@ function _escucharCambios() {
                 if (fav) fav.href = logoHeader;
             }
  
-            // Guardar caché local (excepto campos por dispositivo)
             _guardarCacheLocal(d);
- 
             _cargadoDeFirestore = true;
  
-            // Actualizar toda la UI
+            // Actualizar toda la UI con los datos nuevos
             if (typeof actualizarUICompleta === 'function') actualizarUICompleta();
             if (typeof renderRuleta === 'function') renderRuleta();
             if (typeof renderRuletaCircular === 'function') renderRuletaCircular();
@@ -173,9 +186,14 @@ function _escucharCambios() {
             if (typeof renderRuletaCircularCompras === 'function') renderRuletaCircularCompras();
  
             _setSyncStatus('ok');
+ 
         }, (error) => {
             console.error('Firestore error:', error);
             _setSyncStatus('error');
+            // Si hay error de red, intentar reconectar en 5s
+            setTimeout(() => {
+                if (_usuarioActual) _escucharCambios();
+            }, 5000);
         });
 }
  
@@ -183,40 +201,35 @@ function _escucharCambios() {
 // GUARDAR EN FIRESTORE
 // ============================================================
  
-// Llamada desde cualquier lugar que modifique datos
 function guardarEnDriveConDebounce() {
     if (!_cargadoDeFirestore) return;
-    _pendienteGuardar = true;
     clearTimeout(_debounce);
     _debounce = setTimeout(() => _ejecutarGuardado(), 600);
 }
  
 function guardarEnDrive() {
     if (!_cargadoDeFirestore) return Promise.resolve();
-    _pendienteGuardar = true;
     clearTimeout(_debounce);
     return _ejecutarGuardado();
 }
  
-// Alias para compatibilidad
 function guardarEnFirestore() { return guardarEnDrive(); }
  
 async function _ejecutarGuardado() {
-    if (!_db || !_usuarioActual || !_cargadoDeFirestore) {
-        _pendienteGuardar = false;
-        return;
-    }
-    _ultimoGuardadoMs = Date.now();
+    if (!_db || !_usuarioActual || !_cargadoDeFirestore) return;
+ 
     _setSyncStatus('saving');
+    _ultimoGuardadoMs = Date.now(); // Registrar momento exacto del guardado
+ 
     try {
         await _db.collection('datos').doc('principal').set(_construirDatos());
         _setSyncStatus('ok');
     } catch(e) {
         console.error('Error guardando en Firestore:', e);
         _setSyncStatus('error');
-    } finally {
-        // Solo bloquear por 300ms para evitar eco inmediato
-        setTimeout(() => { _pendienteGuardar = false; }, 300);
+        mostrarToast('⚠️ Error al sincronizar. Reintentando...', 'warning');
+        // Reintentar en 3 segundos
+        setTimeout(() => _ejecutarGuardado(), 3000);
     }
 }
  
