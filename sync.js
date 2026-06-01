@@ -1,3 +1,4 @@
+
 // ============================================================
 // sync.js — Firebase Firestore — Sincronización total en tiempo real
 // ============================================================
@@ -28,6 +29,7 @@ let _unsubscribe = null;
 let _debounce = null;
 let _cargadoDeFirestore = false;
 let _pendienteGuardar = false;
+let _ultimoGuardadoMs = 0;
  
 // ============================================================
 // INICIALIZAR — llamado desde init.js
@@ -46,8 +48,12 @@ async function verificarSesionGuardada() {
     _db = firebase.firestore();
     _auth = firebase.auth();
  
-    // Manejar resultado de redirect (para GitHub Pages)
-    _auth.getRedirectResult().catch(() => {});
+    // Manejar resultado de redirect
+    _auth.getRedirectResult().then((result) => {
+        if (result && result.user) {
+            console.log('Login por redirect exitoso:', result.user.email);
+        }
+    }).catch(() => {});
  
     // Firebase recuerda la sesión automáticamente (localStorage persistente)
     _auth.onAuthStateChanged(async (user) => {
@@ -88,8 +94,14 @@ function _cargarScript(src) {
 function loginGoogle() {
     const provider = new firebase.auth.GoogleAuthProvider();
     provider.setCustomParameters({ prompt: 'select_account' });
-    // Usar redirect en lugar de popup para compatibilidad con GitHub Pages
-    _auth.signInWithRedirect(provider).catch(e => mostrarToast('Error al entrar: ' + e.message, 'error'));
+    // Intentar popup primero, si falla usar redirect
+    _auth.signInWithPopup(provider).catch((e) => {
+        if (e.code === 'auth/popup-blocked' || e.code === 'auth/cancelled-popup-request' || e.code === 'auth/popup-closed-by-user') {
+            _auth.signInWithRedirect(provider);
+        } else {
+            mostrarToast('Error al entrar: ' + e.message, 'error');
+        }
+    });
 }
  
 function cambiarCuentaGoogle() {
@@ -122,11 +134,13 @@ function _escucharCambios() {
                 return;
             }
  
-            // Si estamos en proceso de guardar, ignorar este snapshot (es el nuestro)
-            if (_pendienteGuardar) {
+            // Solo ignorar snapshot si acabamos de guardar (menos de 500ms)
+            const ahorita = Date.now();
+            if (_pendienteGuardar && (ahorita - _ultimoGuardadoMs) < 500) {
                 _setSyncStatus('ok');
                 return;
             }
+            _pendienteGuardar = false;
  
             const d = doc.data();
  
@@ -197,6 +211,7 @@ async function _ejecutarGuardado() {
         _pendienteGuardar = false;
         return;
     }
+    _ultimoGuardadoMs = Date.now();
     _setSyncStatus('saving');
     try {
         await _db.collection('datos').doc('principal').set(_construirDatos());
@@ -205,8 +220,8 @@ async function _ejecutarGuardado() {
         console.error('Error guardando en Firestore:', e);
         _setSyncStatus('error');
     } finally {
-        // Pequeño delay para evitar que el onSnapshot propio nos reescriba
-        setTimeout(() => { _pendienteGuardar = false; }, 1500);
+        // Solo bloquear por 300ms para evitar eco inmediato
+        setTimeout(() => { _pendienteGuardar = false; }, 300);
     }
 }
  
