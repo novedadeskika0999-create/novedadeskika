@@ -306,13 +306,9 @@
             const f = e.target.files[0];
             if (!f) return;
 
-            // Aceptar JSON y Excel
-            if (f.name.endsWith('.xlsx') || f.name.endsWith('.xls')) {
-                importarDesdeExcel(f);
-                return;
-            }
+            // Validar que sea un JSON
             if (f.type !== 'application/json' && !f.name.endsWith('.json')) {
-                mostrarToast('Por favor seleccione un archivo JSON o Excel (.xlsx).', 'error');
+                mostrarToast('Por favor seleccione un archivo JSON válido.', 'error');
                 return;
             }
 
@@ -396,88 +392,6 @@
             r.readAsText(f);
         }
 
-
-        // --- Importar desde Excel ---
-        function importarDesdeExcel(file) {
-            const reader = new FileReader();
-            reader.onload = (e) => {
-                try {
-                    const wb = XLSX.read(new Uint8Array(e.target.result), { type: 'array' });
-                    let importados = 0;
-
-                    wb.SheetNames.forEach(sheetName => {
-                        const ws = wb.Sheets[sheetName];
-                        const rows = XLSX.utils.sheet_to_json(ws, { defval: '' });
-                        if (rows.length === 0) return;
-
-                        const keys = Object.keys(rows[0]).map(k => k.toLowerCase());
-
-                        if (keys.includes('comprador') && keys.includes('producto')) {
-                            // Hoja de compras — usar exactamente los campos que exporta la app
-                            rows.forEach(row => {
-                                const nueva = {
-                                    comprador: row['Comprador'] || '',
-                                    producto: row['Producto'] || '',
-                                    especificacion: (row['Especificación'] || row['Especificacion'] || '') === '—' ? '' : (row['Especificación'] || row['Especificacion'] || ''),
-                                    tamano: row['Tamaño'] || row['Tamano'] || '',
-                                    precio: parseFloat(row['Precio'] || 0),
-                                    cantidad: parseInt(row['Cantidad'] || 1),
-                                    precioTotal: parseFloat(row['Total'] || 0),
-                                    marcado: row['Marcado'] === 'Sí' || row['Marcado'] === true,
-                                    esRegalo: row['Regalo'] === 'Sí' || row['Regalo'] === true,
-                                    notas: (row['Notas'] || '') === '—' ? '' : (row['Notas'] || ''),
-                                    fecha: row['Fecha'] ? new Date(row['Fecha']).toISOString() : new Date().toISOString()
-                                };
-                                if (nueva.comprador && nueva.producto) {
-                                    compras.push(nueva);
-                                    importados++;
-                                }
-                            });
-                        } else if (keys.includes('nombre') && keys.includes('precio unitario')) {
-                            // Hoja de logística — usar exactamente los campos que exporta la app
-                            rows.forEach(row => {
-                                const especRaw = row['Especificaciones'] || '';
-                                const nuevo = {
-                                    nombre: row['Nombre'] || '',
-                                    precioUnitario: parseFloat(row['Precio Unitario'] || 0),
-                                    precioCosto: parseFloat(row['Precio Costo'] || 0),
-                                    cantidad: parseInt(row['Cantidad'] || 0),
-                                    tamano: row['Tamaño'] || row['Tamano'] || '',
-                                    categoria: row['Categoría'] || row['Categoria'] || '',
-                                    ganancia: parseFloat(row['Ganancia'] || 0),
-                                    stockMinimo: parseInt(row['Stock Mínimo'] || row['Stock Minimo'] || 0),
-                                    especificaciones: especRaw ? especRaw.split(',').map(s => s.trim()).filter(Boolean) : []
-                                };
-                                if (nuevo.nombre) {
-                                    const existe = logistica.find(p => p.nombre === nuevo.nombre);
-                                    if (!existe) {
-                                        logistica.push(nuevo);
-                                        importados++;
-                                    }
-                                }
-                            });
-                        }
-                    });
-
-                    if (importados > 0) {
-                        guardarDatosConDebounce();
-                        actualizarTablaLogistica();
-                        actualizarListaProductos();
-                        actualizarTablaCompradores();
-                        actualizarVentasTotales();
-                        actualizarResumenCompradoras();
-                        actualizarTablaCuentas();
-                        actualizarDashboard();
-                        mostrarToast('✅ Importados ' + importados + ' registros desde Excel', 'success');
-                    } else {
-                        mostrarToast('No se encontraron datos válidos en el Excel', 'warning');
-                    }
-                } catch(err) {
-                    mostrarToast('Error al leer Excel: ' + err, 'error');
-                }
-            };
-            reader.readAsArrayBuffer(file);
-        }
         function guardarInformacion() {
             const data = {
                 logistica,
@@ -514,11 +428,11 @@
 
         // --- Funciones de Guardado con Debounce ---
         function guardarDatosConDebounce() {
-            // Guardar en Firebase inmediatamente (sin espera)
-            if (typeof guardarEnDrive === 'function') guardarEnDrive();
+            // Guardar en Firebase inmediatamente
+            if (typeof guardarEnDriveConDebounce === 'function') guardarEnDriveConDebounce();
             // Guardar localmente con debounce
             clearTimeout(debounceTimer);
-            debounceTimer = setTimeout(() => guardarDatos(), 1000);
+            debounceTimer = setTimeout(guardarDatos, 1000);
         }
 
         // --- Funciones de Teclado ---
