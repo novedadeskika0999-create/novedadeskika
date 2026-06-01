@@ -1,8 +1,8 @@
-/ Service Worker mínimo para PWA
-const CACHE_NAME = 'novedades-kika-v1';
- 
-self.addEventListener('install', e => self.skipWaiting());
-self.addEventListener('activate', e => e.waitUntil(clients.claim()));
-self.addEventListener('fetch', e => {
-    e.respondWith(fetch(e.request).catch(() => caches.match(e.request)));
+// Service Worker — desinstalarse a sí mismo
+self.addEventListener('install', () => self.skipWaiting());
+self.addEventListener('activate', (e) => {
+    e.waitUntil(
+        caches.keys().then(keys => Promise.all(keys.map(k => caches.delete(k))))
+        .then(() => self.registration.unregister())
+    );
 });
