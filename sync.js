@@ -29,6 +29,7 @@ let _debounce = null;
 let _cargadoDeFirestore = false;
 let _pendienteGuardar = false;
 let _ultimoGuardadoMs = 0;
+let _recibiendoSnapshot = false; // Bloquea guardados mientras se procesa un snapshot
 
 // ============================================================
 // INICIALIZAR — llamado desde init.js
@@ -164,12 +165,17 @@ function _escucharCambios() {
 
             _cargadoDeFirestore = true;
 
-            // Actualizar toda la UI
-            if (typeof actualizarUICompleta === 'function') actualizarUICompleta();
-            if (typeof renderRuleta === 'function') renderRuleta();
-            if (typeof renderRuletaCircular === 'function') renderRuletaCircular();
-            if (typeof renderRifaCompras === 'function') renderRifaCompras();
-            if (typeof renderRuletaCircularCompras === 'function') renderRuletaCircularCompras();
+            // Actualizar toda la UI sin disparar guardados
+            _recibiendoSnapshot = true;
+            try {
+                if (typeof actualizarUICompleta === 'function') actualizarUICompleta();
+                if (typeof renderRuleta === 'function') renderRuleta();
+                if (typeof renderRuletaCircular === 'function') renderRuletaCircular();
+                if (typeof renderRifaCompras === 'function') renderRifaCompras();
+                if (typeof renderRuletaCircularCompras === 'function') renderRuletaCircularCompras();
+            } finally {
+                _recibiendoSnapshot = false;
+            }
 
             _setSyncStatus('ok');
         }, (error) => {
@@ -185,6 +191,7 @@ function _escucharCambios() {
 // Llamada desde cualquier lugar que modifique datos
 function guardarEnDriveConDebounce() {
     if (!_cargadoDeFirestore) return;
+    if (_recibiendoSnapshot) return; // No guardar mientras procesamos snapshot de Firestore
     _pendienteGuardar = true;
     clearTimeout(_debounce);
     _debounce = setTimeout(() => _ejecutarGuardado(), 600);
