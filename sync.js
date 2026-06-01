@@ -35,6 +35,16 @@ let _ultimoGuardadoMs = 0;
 // ============================================================
  
 async function verificarSesionGuardada() {
+    // Reset de emergencia
+    if (window.location.search.includes('reset=1')) {
+        await _cargarScript('https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js');
+        await _cargarScript('https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js');
+        if (!firebase.apps.length) firebase.initializeApp(FIREBASE_CONFIG);
+        await firebase.auth().signOut();
+        localStorage.clear();
+        window.location.href = '/novedadeskika/';
+        return;
+    }
     // Limpiar tokens viejos de Drive
     localStorage.removeItem('driveAccessToken');
  
