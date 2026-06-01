@@ -157,13 +157,14 @@
             cfg.get('ruletaColorCompras').onsuccess = (e) => { ruletaColorCompras = e.target.result || '#059669'; };
         }
 
-        function guardarDatos() {
-            if (db) guardarEnDB();
-            guardarDatosLocalStorage();
-        }
-
-        function guardarDatosLocalStorage() {
-            localStorage.setItem('compras', JSON.stringify(compras));
+function guardarDatos() {
+    if (db) guardarEnDB();
+    guardarDatosLocalStorage();
+    if (typeof guardarEnDriveConDebounce === 'function') guardarEnDriveConDebounce();
+}
+function guardarDatosLocalStorage() {
+    if (typeof guardarEnDriveConDebounce === 'function') guardarEnDriveConDebounce();
+    localStorage.setItem('compras', JSON.stringify(compras));
             localStorage.setItem('logistica', JSON.stringify(logistica));
             localStorage.setItem('inversionExtras', inversionExtras);
             localStorage.setItem('resumenMarcado', JSON.stringify(resumenMarcado));
