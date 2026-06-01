@@ -1,7 +1,7 @@
 // ============================================================
 // sync.js — Firebase Firestore — Sincronización total en tiempo real
 // ============================================================
- 
+
 const FIREBASE_CONFIG = {
     apiKey: "AIzaSyCbhpjJ6gkK4CTc7c9C83alJHPSzTFzQ08",
     authDomain: "novedadeskika-9601a.firebaseapp.com",
@@ -10,17 +10,17 @@ const FIREBASE_CONFIG = {
     messagingSenderId: "373093885197",
     appId: "1:373093855197:web:2301e32b8093316832fc44"
 };
- 
+
 const CORREOS_AUTORIZADOS = [
     'novedadeskika0999@gmail.com',
     'myk1xk@gmail.com',
     'epro9749@gmail.com',
     'mikyy0811@gmail.com',
 ];
- 
+
 // Campos que NO se sincronizan (son por dispositivo)
 const CAMPOS_LOCALES = ['isDarkMode', 'tema', 'darkMode'];
- 
+
 let _db = null;
 let _auth = null;
 let _usuarioActual = null;
@@ -30,21 +30,21 @@ let _cargadoDeFirestore = false;
 let _pendienteGuardar = false;
 let _ultimoGuardadoMs = 0;
 let _recibiendoSnapshot = false; // Bloquea guardados mientras se procesa un snapshot
- 
+
 // ============================================================
 // INICIALIZAR — llamado desde init.js
 // ============================================================
- 
+
 async function verificarSesionGuardada() {
     localStorage.removeItem('driveAccessToken');
- 
+
     // Cargar Firebase SDKs (sin Auth — usamos PIN propio)
     await _cargarScript('https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js');
     await _cargarScript('https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js');
- 
+
     if (!firebase.apps.length) firebase.initializeApp(FIREBASE_CONFIG);
     _db = firebase.firestore();
- 
+
     // Verificar sesión guardada
     const sesionGuardada = localStorage.getItem('nk_sesion');
     if (sesionGuardada && CORREOS_AUTORIZADOS.includes(sesionGuardada)) {
@@ -57,7 +57,7 @@ async function verificarSesionGuardada() {
         _mostrarOverlay(true);
     }
 }
- 
+
 function _cargarScript(src) {
     return new Promise((resolve) => {
         if (document.querySelector(`script[src="${src}"]`)) { resolve(); return; }
@@ -66,11 +66,11 @@ function _cargarScript(src) {
         document.head.appendChild(s);
     });
 }
- 
+
 // ============================================================
 // LOGIN / LOGOUT — Sistema de PIN (funciona en todos los dispositivos)
 // ============================================================
- 
+
 // PINes de acceso — cada uno corresponde a una cuenta
 const PINES_ACCESO = {
     '1111': 'novedadeskika0999@gmail.com',
@@ -78,7 +78,7 @@ const PINES_ACCESO = {
     '3333': 'epro9749@gmail.com',
     '4444': 'mikyy0811@gmail.com',
 };
- 
+
 function loginGoogle() {
     const pinEl = document.getElementById('loginPin');
     const pin = pinEl ? pinEl.value.trim() : '';
@@ -95,11 +95,11 @@ function loginGoogle() {
         if (pinEl) { pinEl.value = ''; pinEl.focus(); }
     }
 }
- 
+
 function cambiarCuentaGoogle() {
     logoutGoogle();
 }
- 
+
 function logoutGoogle() {
     if (confirm('¿Cerrar sesión? Tus datos NO se borrarán.')) {
         _cargadoDeFirestore = false;
@@ -110,15 +110,15 @@ function logoutGoogle() {
         mostrarToast('Sesión cerrada', 'info');
     }
 }
- 
+
 // ============================================================
 // ESCUCHAR CAMBIOS EN TIEMPO REAL
 // ============================================================
- 
+
 function _escucharCambios() {
     if (_unsubscribe) _unsubscribe();
     _setSyncStatus('syncing');
- 
+
     _unsubscribe = _db.collection('datos').doc('principal')
         .onSnapshot({ includeMetadataChanges: false }, async (doc) => {
             if (!doc.exists) {
@@ -128,17 +128,17 @@ function _escucharCambios() {
                 _setSyncStatus('ok');
                 return;
             }
- 
-            // Ignorar snapshot si acabamos de guardar (menos de 3 segundos)
+
+            // Ignorar snapshot si hay cambios locales pendientes o recientes (menos de 4 segundos)
             const ahorita = Date.now();
-            if (_pendienteGuardar && (ahorita - _ultimoGuardadoMs) < 3000) {
+            if (_ultimoGuardadoMs > 0 && (ahorita - _ultimoGuardadoMs) < 4000) {
                 _setSyncStatus('ok');
                 return;
             }
             _pendienteGuardar = false;
- 
+
             const d = doc.data();
- 
+
             // Actualizar todas las variables globales
             compras                = d.compras || [];
             logistica              = d.logistica || [];
@@ -159,12 +159,12 @@ function _escucharCambios() {
                 if (img) img.src = logoHeader;
                 if (fav) fav.href = logoHeader;
             }
- 
+
             // Guardar caché local (excepto campos por dispositivo)
             _guardarCacheLocal(d);
- 
+
             _cargadoDeFirestore = true;
- 
+
             // Actualizar toda la UI sin disparar guardados
             _recibiendoSnapshot = true;
             try {
@@ -176,37 +176,38 @@ function _escucharCambios() {
             } finally {
                 _recibiendoSnapshot = false;
             }
- 
+
             _setSyncStatus('ok');
         }, (error) => {
             console.error('Firestore error:', error);
             _setSyncStatus('error');
         });
 }
- 
+
 // ============================================================
 // GUARDAR EN FIRESTORE
 // ============================================================
- 
+
 // Llamada desde cualquier lugar que modifique datos
 function guardarEnDriveConDebounce() {
     if (!_cargadoDeFirestore) return;
-    if (_recibiendoSnapshot) return; // No guardar mientras procesamos snapshot de Firestore
+    if (_recibiendoSnapshot) return;
     _pendienteGuardar = true;
+    _ultimoGuardadoMs = Date.now(); // Marcar tiempo desde que hay cambio pendiente
     clearTimeout(_debounce);
     _debounce = setTimeout(() => _ejecutarGuardado(), 600);
 }
- 
+
 function guardarEnDrive() {
     if (!_cargadoDeFirestore) return Promise.resolve();
     _pendienteGuardar = true;
     clearTimeout(_debounce);
     return _ejecutarGuardado();
 }
- 
+
 // Alias para compatibilidad
 function guardarEnFirestore() { return guardarEnDrive(); }
- 
+
 async function _ejecutarGuardado() {
     if (!_db || !_usuarioActual || !_cargadoDeFirestore) {
         _pendienteGuardar = false;
@@ -221,11 +222,14 @@ async function _ejecutarGuardado() {
         console.error('Error guardando en Firestore:', e);
         _setSyncStatus('error');
     } finally {
-        // Bloquear snapshots por 3 segundos después de guardar
-        setTimeout(() => { _pendienteGuardar = false; }, 3000);
+        // Resetear después de 4 segundos para permitir snapshots de otros dispositivos
+        setTimeout(() => { 
+            _pendienteGuardar = false;
+            _ultimoGuardadoMs = 0;
+        }, 4000);
     }
 }
- 
+
 function _construirDatos() {
     return {
         compras,
@@ -245,7 +249,7 @@ function _construirDatos() {
         timestamp:           firebase.firestore.FieldValue.serverTimestamp()
     };
 }
- 
+
 async function _subirDatosLocales() {
     const cl = JSON.parse(localStorage.getItem('compras') || '[]');
     const ll = JSON.parse(localStorage.getItem('logistica') || '[]');
@@ -264,7 +268,7 @@ async function _subirDatosLocales() {
         if (typeof actualizarUICompleta === 'function') actualizarUICompleta();
     }
 }
- 
+
 function _guardarCacheLocal(d) {
     localStorage.setItem('compras',                JSON.stringify(d.compras || []));
     localStorage.setItem('logistica',              JSON.stringify(d.logistica || []));
@@ -277,16 +281,16 @@ function _guardarCacheLocal(d) {
     localStorage.setItem('selectedTemplate',       d.selectedTemplate || 'plantilla1');
     localStorage.setItem('logoHeader',             d.logoHeader || '');
 }
- 
+
 // ============================================================
 // UI
 // ============================================================
- 
+
 function _mostrarOverlay(mostrar) {
     const el = document.getElementById('loginOverlay');
     if (el) el.style.display = mostrar ? 'flex' : 'none';
 }
- 
+
 function _setSyncStatus(estado) {
     const el = document.getElementById('syncStatus');
     if (!el) return;
@@ -299,4 +303,3 @@ function _setSyncStatus(estado) {
     el.innerHTML = map[estado] || map.ok;
     el.style.background = estado === 'error' ? 'rgba(200,50,50,0.8)' : 'rgba(0,0,0,0.6)';
 }
- 
