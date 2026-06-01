@@ -82,7 +82,7 @@
                         <td><input class="inline-input" type="number" id="editPrecioCosto${i}" value="${p.precioCosto}" step="0.01" min="0"></td>
                         <td><input class="inline-input" type="number" id="editCantidad${i}" value="${p.cantidad}" min="1"></td>
                         <td>
-                            <input type="number" value="${p.cantidad}" onchange="actualizarCantidadLogistica(${logistica.indexOf(p)}, this.value)"
+                            <input type="number" value="${p.cantidad}" onblur="actualizarCantidadLogistica(${logistica.indexOf(p)}, this.value)"
                                 style="width:70px; text-align:center; padding:6px 8px; border:1px solid var(--border-strong); border-radius:var(--radius-sm); background:var(--surface); color:var(--text-primary);">
                         </td>
                         <td>

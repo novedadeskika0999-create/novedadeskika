@@ -318,7 +318,7 @@
                         <td><span class="badge badge-blue">${escapeHtml(c.tamano || '—')}</span></td>
                         <td>$${precio.toFixed(2)}</td>
                         <td>
-                            <input type="number" value="${cantidad}" onchange="editarCantidadCompra(${i}, this.value)"
+                            <input type="number" value="${cantidad}" onblur="editarCantidadCompra(${i}, this.value)"
                                 style="width:70px; text-align:center; padding:6px 8px; border:1px solid var(--border-strong); border-radius:var(--radius-sm); background:var(--surface); color:var(--text-primary);">
                         </td>
                         <td>$${precioTotal.toFixed(2)}</td>
