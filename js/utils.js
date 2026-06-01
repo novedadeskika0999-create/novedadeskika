@@ -512,17 +512,18 @@
             mostrarToast(idiomas[idiomaActual].txtArchivoGenerado, 'success');
         }
 
-            function guardarDatosConDebounce() {
-                clearTimeout(debounceTimer);
-                debounceTimer = setTimeout(() => {
-                    guardarDatos();
-                    // FIX: Siempre llamar a Firestore si está disponible, sin verificar _accessToken
-            if (typeof guardarEnDriveConDebounce === 'function') {
-                guardarEnDriveConDebounce();
-                 }
-               }, 500);
+        // --- Funciones de Guardado con Debounce ---
+        function guardarDatosConDebounce() {
+            clearTimeout(debounceTimer);
+            debounceTimer = setTimeout(() => {
+                guardarDatos();
+                // Sincronizar con Drive inmediatamente después de guardar local
+                if (typeof guardarEnDriveConDebounce === 'function' && typeof _accessToken !== 'undefined' && _accessToken) {
+                    guardarEnDriveConDebounce();
+                }
+            }, 500); // Reducido a 500ms para respuesta más rápida
         }
- 
+
         // --- Funciones de Teclado ---
         function manejarTecladoLogistica(event) {
             if (event.key === 'Enter') {
