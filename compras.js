@@ -388,8 +388,7 @@
             if (compras[i].esRegalo && !confirm(idiomas[idiomaActual].txtConfirmarEliminarRegalo)) return;
 
             compras.splice(i, 1);
-            guardarDatos();
-            if (typeof guardarEnDrive === 'function') guardarEnDrive();
+            guardarDatosConDebounce();
             actualizarTablaCompradores();
             actualizarVentasTotales();
             actualizarResumenCompradoras();

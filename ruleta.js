@@ -14,6 +14,7 @@
                     ruletaColorCompartidas = color;
                     localStorage.setItem('ruletaColorCompartidas', color);
                     guardarDatos();
+            if (typeof guardarEnDrive === 'function') guardarEnDrive();
                     renderRuletaCircular();
                     document.querySelectorAll('#colorOptionsRifaCompartidas .color-option').forEach(d => d.classList.remove('selected'));
                     div.classList.add('selected');
@@ -32,6 +33,7 @@
                     ruletaColorCompras = color;
                     localStorage.setItem('ruletaColorCompras', color);
                     guardarDatos();
+            if (typeof guardarEnDrive === 'function') guardarEnDrive();
                     renderRuletaCircularCompras();
                     document.querySelectorAll('#colorOptionsRifaCompras .color-option').forEach(d => d.classList.remove('selected'));
                     div.classList.add('selected');
@@ -232,8 +234,7 @@
             participantes.splice(i, 1);
             renderRuleta();
             renderRuletaCircular();
-            guardarDatos();
-            if (typeof guardarEnDrive === 'function') guardarEnDrive();
+            guardarDatosConDebounce();
             mostrarToast('Participante eliminado correctamente.', 'success');
         }
 
@@ -306,8 +307,7 @@
                     ruletaAngle = 0;
                     renderRuleta();
                     renderRuletaCircular();
-                    guardarDatos();
-                    if (typeof guardarEnDrive === 'function') guardarEnDrive();
+                    guardarDatosConDebounce();
 
                     document.getElementById('btnGana').disabled = false;
                     document.getElementById('btnPierde').disabled = false;
@@ -377,8 +377,7 @@
                     ruletaAngleCompras = 0;
                     renderRifaCompras();
                     renderRuletaCircularCompras();
-                    guardarDatos();
-                    if (typeof guardarEnDrive === 'function') guardarEnDrive();
+                    guardarDatosConDebounce();
 
                     document.getElementById('btnGiraGana').disabled = false;
                     document.getElementById('btnGiraPierde').disabled = false;
