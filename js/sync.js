@@ -1,3 +1,4 @@
+
 // ============================================================
 // sync.js — Firebase Firestore — Sincronización total en tiempo real
 // ============================================================
@@ -35,42 +36,26 @@ let _ultimoGuardadoMs = 0;
 // ============================================================
  
 async function verificarSesionGuardada() {
-    // Limpiar tokens viejos de Drive
     localStorage.removeItem('driveAccessToken');
  
-    // Cargar Firebase SDKs
+    // Cargar Firebase SDKs (sin Auth — usamos PIN propio)
     await _cargarScript('https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js');
     await _cargarScript('https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js');
-    await _cargarScript('https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js');
  
     if (!firebase.apps.length) firebase.initializeApp(FIREBASE_CONFIG);
     _db = firebase.firestore();
-    _auth = firebase.auth();
  
-    // Manejar resultado de redirect (para GitHub Pages)
-    _auth.getRedirectResult().catch(() => {});
- 
-    // Firebase recuerda la sesión automáticamente (localStorage persistente)
-    _auth.onAuthStateChanged(async (user) => {
-        if (user) {
-            if (!CORREOS_AUTORIZADOS.includes(user.email.toLowerCase())) {
-                await _auth.signOut();
-                mostrarToast('❌ ' + user.email + ' no está autorizado', 'error');
-                _mostrarOverlay(true);
-                return;
-            }
-            _usuarioActual = user.email;
-            _mostrarOverlay(false);
-            const el = document.getElementById('usuarioNombre');
-            if (el) el.textContent = '👤 ' + user.email.split('@')[0];
-            _escucharCambios();
-        } else {
-            _usuarioActual = null;
-            _cargadoDeFirestore = false;
-            _mostrarOverlay(true);
-            if (_unsubscribe) { _unsubscribe(); _unsubscribe = null; }
-        }
-    });
+    // Verificar sesión guardada
+    const sesionGuardada = localStorage.getItem('nk_sesion');
+    if (sesionGuardada && CORREOS_AUTORIZADOS.includes(sesionGuardada)) {
+        _usuarioActual = sesionGuardada;
+        _mostrarOverlay(false);
+        const el = document.getElementById('usuarioNombre');
+        if (el) el.textContent = '👤 ' + sesionGuardada.split('@')[0];
+        _escucharCambios();
+    } else {
+        _mostrarOverlay(true);
+    }
 }
  
 function _cargarScript(src) {
@@ -83,25 +68,46 @@ function _cargarScript(src) {
 }
  
 // ============================================================
-// LOGIN / LOGOUT
+// LOGIN / LOGOUT — Sistema de PIN (funciona en todos los dispositivos)
 // ============================================================
  
+// PINes de acceso — cada uno corresponde a una cuenta
+const PINES_ACCESO = {
+    '1111': 'novedadeskika0999@gmail.com',
+    '2222': 'myk1xk@gmail.com',
+    '3333': 'epro9749@gmail.com',
+    '4444': 'mikyy0811@gmail.com',
+};
+ 
 function loginGoogle() {
-    const provider = new firebase.auth.GoogleAuthProvider();
-    provider.setCustomParameters({ prompt: 'select_account' });
-    // Usar redirect en lugar de popup para compatibilidad con GitHub Pages
-    _auth.signInWithRedirect(provider).catch(e => mostrarToast('Error al entrar: ' + e.message, 'error'));
+    const pinEl = document.getElementById('loginPin');
+    const pin = pinEl ? pinEl.value.trim() : '';
+    if (PINES_ACCESO[pin]) {
+        _usuarioActual = PINES_ACCESO[pin];
+        localStorage.setItem('nk_sesion', _usuarioActual);
+        _mostrarOverlay(false);
+        const el = document.getElementById('usuarioNombre');
+        if (el) el.textContent = '👤 ' + _usuarioActual.split('@')[0];
+        _escucharCambios();
+        mostrarToast('✅ Bienvenido ' + _usuarioActual.split('@')[0], 'success');
+    } else {
+        mostrarToast('❌ PIN incorrecto', 'error');
+        if (pinEl) { pinEl.value = ''; pinEl.focus(); }
+    }
 }
  
 function cambiarCuentaGoogle() {
-    _cargadoDeFirestore = false;
-    _auth.signOut();
+    logoutGoogle();
 }
  
 function logoutGoogle() {
-    if (confirm('¿Cerrar sesión? Tus datos en la nube NO se borrarán.')) {
+    if (confirm('¿Cerrar sesión? Tus datos NO se borrarán.')) {
         _cargadoDeFirestore = false;
-        _auth.signOut();
+        _usuarioActual = null;
+        localStorage.removeItem('nk_sesion');
+        if (_unsubscribe) { _unsubscribe(); _unsubscribe = null; }
+        _mostrarOverlay(true);
+        mostrarToast('Sesión cerrada', 'info');
     }
 }
  
@@ -287,3 +293,4 @@ function _setSyncStatus(estado) {
     el.innerHTML = map[estado] || map.ok;
     el.style.background = estado === 'error' ? 'rgba(200,50,50,0.8)' : 'rgba(0,0,0,0.6)';
 }
+ 
