@@ -1,4 +1,3 @@
-
 // ============================================================
 // sync.js — Firebase Firestore — Sincronización total en tiempo real
 // ============================================================
@@ -47,13 +46,6 @@ async function verificarSesionGuardada() {
     if (!firebase.apps.length) firebase.initializeApp(FIREBASE_CONFIG);
     _db = firebase.firestore();
     _auth = firebase.auth();
- 
-    // Manejar resultado de redirect
-    _auth.getRedirectResult().then((result) => {
-        if (result && result.user) {
-            console.log('Login por redirect exitoso:', result.user.email);
-        }
-    }).catch(() => {});
  
     // Firebase recuerda la sesión automáticamente (localStorage persistente)
     _auth.onAuthStateChanged(async (user) => {
