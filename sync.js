@@ -35,16 +35,6 @@ let _ultimoGuardadoMs = 0;
 // ============================================================
  
 async function verificarSesionGuardada() {
-    // Reset de emergencia
-    if (window.location.search.includes('reset=1')) {
-        await _cargarScript('https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js');
-        await _cargarScript('https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js');
-        if (!firebase.apps.length) firebase.initializeApp(FIREBASE_CONFIG);
-        await firebase.auth().signOut();
-        localStorage.clear();
-        window.location.href = '/novedadeskika/';
-        return;
-    }
     // Limpiar tokens viejos de Drive
     localStorage.removeItem('driveAccessToken');
  
@@ -56,6 +46,16 @@ async function verificarSesionGuardada() {
     if (!firebase.apps.length) firebase.initializeApp(FIREBASE_CONFIG);
     _db = firebase.firestore();
     _auth = firebase.auth();
+ 
+    // Manejar resultado de redirect en móviles
+    if (sessionStorage.getItem('loginInProgress')) {
+        sessionStorage.removeItem('loginInProgress');
+        try {
+            await _auth.getRedirectResult();
+        } catch(e) {
+            console.log('redirect result error:', e.code);
+        }
+    }
  
     // Firebase recuerda la sesión automáticamente (localStorage persistente)
     _auth.onAuthStateChanged(async (user) => {
@@ -96,11 +96,18 @@ function _cargarScript(src) {
 function loginGoogle() {
     const provider = new firebase.auth.GoogleAuthProvider();
     provider.setCustomParameters({ prompt: 'select_account' });
-    _auth.signInWithPopup(provider).catch((e) => {
-        if (e.code !== 'auth/popup-closed-by-user') {
-            mostrarToast('Error: ' + e.message, 'error');
-        }
-    });
+    // En móviles usar redirect, en desktop usar popup
+    const esMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+    if (esMobile) {
+        sessionStorage.setItem('loginInProgress', '1');
+        _auth.signInWithRedirect(provider);
+    } else {
+        _auth.signInWithPopup(provider).catch((e) => {
+            if (e.code !== 'auth/popup-closed-by-user') {
+                mostrarToast('Error: ' + e.message, 'error');
+            }
+        });
+    }
 }
  
 function cambiarCuentaGoogle() {
