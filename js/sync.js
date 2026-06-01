@@ -28,6 +28,7 @@ let _unsubscribe = null;
 let _debounce = null;
 let _cargadoDeFirestore = false;
 let _pendienteGuardar = false;
+let _ultimoGuardadoMs = 0;
  
 // ============================================================
 // INICIALIZAR — llamado desde init.js
@@ -45,6 +46,9 @@ async function verificarSesionGuardada() {
     if (!firebase.apps.length) firebase.initializeApp(FIREBASE_CONFIG);
     _db = firebase.firestore();
     _auth = firebase.auth();
+ 
+    // Manejar resultado de redirect (para GitHub Pages)
+    _auth.getRedirectResult().catch(() => {});
  
     // Firebase recuerda la sesión automáticamente (localStorage persistente)
     _auth.onAuthStateChanged(async (user) => {
@@ -85,7 +89,8 @@ function _cargarScript(src) {
 function loginGoogle() {
     const provider = new firebase.auth.GoogleAuthProvider();
     provider.setCustomParameters({ prompt: 'select_account' });
-    _auth.signInWithPopup(provider).catch(e => mostrarToast('Error al entrar: ' + e.message, 'error'));
+    // Usar redirect en lugar de popup para compatibilidad con GitHub Pages
+    _auth.signInWithRedirect(provider).catch(e => mostrarToast('Error al entrar: ' + e.message, 'error'));
 }
  
 function cambiarCuentaGoogle() {
@@ -118,11 +123,13 @@ function _escucharCambios() {
                 return;
             }
  
-            // Si estamos en proceso de guardar, ignorar este snapshot (es el nuestro)
-            if (_pendienteGuardar) {
+            // Solo ignorar snapshot si acabamos de guardar (menos de 500ms)
+            const ahorita = Date.now();
+            if (_pendienteGuardar && (ahorita - _ultimoGuardadoMs) < 500) {
                 _setSyncStatus('ok');
                 return;
             }
+            _pendienteGuardar = false;
  
             const d = doc.data();
  
@@ -193,6 +200,7 @@ async function _ejecutarGuardado() {
         _pendienteGuardar = false;
         return;
     }
+    _ultimoGuardadoMs = Date.now();
     _setSyncStatus('saving');
     try {
         await _db.collection('datos').doc('principal').set(_construirDatos());
@@ -201,8 +209,8 @@ async function _ejecutarGuardado() {
         console.error('Error guardando en Firestore:', e);
         _setSyncStatus('error');
     } finally {
-        // Pequeño delay para evitar que el onSnapshot propio nos reescriba
-        setTimeout(() => { _pendienteGuardar = false; }, 1500);
+        // Solo bloquear por 300ms para evitar eco inmediato
+        setTimeout(() => { _pendienteGuardar = false; }, 300);
     }
 }
  
@@ -279,4 +287,3 @@ function _setSyncStatus(estado) {
     el.innerHTML = map[estado] || map.ok;
     el.style.background = estado === 'error' ? 'rgba(200,50,50,0.8)' : 'rgba(0,0,0,0.6)';
 }
- 
