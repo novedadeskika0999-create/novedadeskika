@@ -1,7 +1,7 @@
 // ============================================================
 // sync.js — Firebase Firestore — Sincronización total en tiempo real
 // ============================================================
- 
+
 const FIREBASE_CONFIG = {
     apiKey: "AIzaSyCbhpjJ6gkK4CTc7c9C83alJHPSzTFzQ08",
     authDomain: "novedadeskika-9601a.firebaseapp.com",
@@ -10,17 +10,17 @@ const FIREBASE_CONFIG = {
     messagingSenderId: "373093885197",
     appId: "1:373093855197:web:2301e32b8093316832fc44"
 };
- 
+
 const CORREOS_AUTORIZADOS = [
     'novedadeskika0999@gmail.com',
     'myk1xk@gmail.com',
     'epro9749@gmail.com',
     'mikyy0811@gmail.com',
 ];
- 
+
 // Campos que NO se sincronizan (son por dispositivo)
 const CAMPOS_LOCALES = ['isDarkMode', 'tema', 'darkMode'];
- 
+
 let _db = null;
 let _auth = null;
 let _usuarioActual = null;
@@ -29,57 +29,34 @@ let _debounce = null;
 let _cargadoDeFirestore = false;
 let _pendienteGuardar = false;
 let _ultimoGuardadoMs = 0;
- 
+
 // ============================================================
 // INICIALIZAR — llamado desde init.js
 // ============================================================
- 
+
 async function verificarSesionGuardada() {
-    // Limpiar tokens viejos de Drive
     localStorage.removeItem('driveAccessToken');
- 
-    // Cargar Firebase SDKs
+
+    // Cargar Firebase SDKs (sin Auth — usamos PIN propio)
     await _cargarScript('https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js');
     await _cargarScript('https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js');
-    await _cargarScript('https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js');
- 
+
     if (!firebase.apps.length) firebase.initializeApp(FIREBASE_CONFIG);
     _db = firebase.firestore();
-    _auth = firebase.auth();
- 
-    // Manejar resultado de redirect en móviles
-    if (sessionStorage.getItem('loginInProgress')) {
-        sessionStorage.removeItem('loginInProgress');
-        try {
-            await _auth.getRedirectResult();
-        } catch(e) {
-            console.log('redirect result error:', e.code);
-        }
+
+    // Verificar sesión guardada
+    const sesionGuardada = localStorage.getItem('nk_sesion');
+    if (sesionGuardada && CORREOS_AUTORIZADOS.includes(sesionGuardada)) {
+        _usuarioActual = sesionGuardada;
+        _mostrarOverlay(false);
+        const el = document.getElementById('usuarioNombre');
+        if (el) el.textContent = '👤 ' + sesionGuardada.split('@')[0];
+        _escucharCambios();
+    } else {
+        _mostrarOverlay(true);
     }
- 
-    // Firebase recuerda la sesión automáticamente (localStorage persistente)
-    _auth.onAuthStateChanged(async (user) => {
-        if (user) {
-            if (!CORREOS_AUTORIZADOS.includes(user.email.toLowerCase())) {
-                await _auth.signOut();
-                mostrarToast('❌ ' + user.email + ' no está autorizado', 'error');
-                _mostrarOverlay(true);
-                return;
-            }
-            _usuarioActual = user.email;
-            _mostrarOverlay(false);
-            const el = document.getElementById('usuarioNombre');
-            if (el) el.textContent = '👤 ' + user.email.split('@')[0];
-            _escucharCambios();
-        } else {
-            _usuarioActual = null;
-            _cargadoDeFirestore = false;
-            _mostrarOverlay(true);
-            if (_unsubscribe) { _unsubscribe(); _unsubscribe = null; }
-        }
-    });
 }
- 
+
 function _cargarScript(src) {
     return new Promise((resolve) => {
         if (document.querySelector(`script[src="${src}"]`)) { resolve(); return; }
@@ -88,48 +65,59 @@ function _cargarScript(src) {
         document.head.appendChild(s);
     });
 }
- 
+
 // ============================================================
-// LOGIN / LOGOUT
+// LOGIN / LOGOUT — Sistema de PIN (funciona en todos los dispositivos)
 // ============================================================
- 
+
+// PINes de acceso — cada uno corresponde a una cuenta
+const PINES_ACCESO = {
+    '1111': 'novedadeskika0999@gmail.com',
+    '2222': 'myk1xk@gmail.com',
+    '3333': 'epro9749@gmail.com',
+    '4444': 'mikyy0811@gmail.com',
+};
+
 function loginGoogle() {
-    const provider = new firebase.auth.GoogleAuthProvider();
-    provider.setCustomParameters({ prompt: 'select_account' });
-    // En móviles usar redirect, en desktop usar popup
-    const esMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
-    if (esMobile) {
-        sessionStorage.setItem('loginInProgress', '1');
-        _auth.signInWithRedirect(provider);
+    const pinEl = document.getElementById('loginPin');
+    const pin = pinEl ? pinEl.value.trim() : '';
+    if (PINES_ACCESO[pin]) {
+        _usuarioActual = PINES_ACCESO[pin];
+        localStorage.setItem('nk_sesion', _usuarioActual);
+        _mostrarOverlay(false);
+        const el = document.getElementById('usuarioNombre');
+        if (el) el.textContent = '👤 ' + _usuarioActual.split('@')[0];
+        _escucharCambios();
+        mostrarToast('✅ Bienvenido ' + _usuarioActual.split('@')[0], 'success');
     } else {
-        _auth.signInWithPopup(provider).catch((e) => {
-            if (e.code !== 'auth/popup-closed-by-user') {
-                mostrarToast('Error: ' + e.message, 'error');
-            }
-        });
+        mostrarToast('❌ PIN incorrecto', 'error');
+        if (pinEl) { pinEl.value = ''; pinEl.focus(); }
     }
 }
- 
+
 function cambiarCuentaGoogle() {
-    _cargadoDeFirestore = false;
-    _auth.signOut();
+    logoutGoogle();
 }
- 
+
 function logoutGoogle() {
-    if (confirm('¿Cerrar sesión? Tus datos en la nube NO se borrarán.')) {
+    if (confirm('¿Cerrar sesión? Tus datos NO se borrarán.')) {
         _cargadoDeFirestore = false;
-        _auth.signOut();
+        _usuarioActual = null;
+        localStorage.removeItem('nk_sesion');
+        if (_unsubscribe) { _unsubscribe(); _unsubscribe = null; }
+        _mostrarOverlay(true);
+        mostrarToast('Sesión cerrada', 'info');
     }
 }
- 
+
 // ============================================================
 // ESCUCHAR CAMBIOS EN TIEMPO REAL
 // ============================================================
- 
+
 function _escucharCambios() {
     if (_unsubscribe) _unsubscribe();
     _setSyncStatus('syncing');
- 
+
     _unsubscribe = _db.collection('datos').doc('principal')
         .onSnapshot({ includeMetadataChanges: false }, async (doc) => {
             if (!doc.exists) {
@@ -139,7 +127,7 @@ function _escucharCambios() {
                 _setSyncStatus('ok');
                 return;
             }
- 
+
             // Solo ignorar snapshot si acabamos de guardar (menos de 500ms)
             const ahorita = Date.now();
             if (_pendienteGuardar && (ahorita - _ultimoGuardadoMs) < 500) {
@@ -147,9 +135,9 @@ function _escucharCambios() {
                 return;
             }
             _pendienteGuardar = false;
- 
+
             const d = doc.data();
- 
+
             // Actualizar todas las variables globales
             compras                = d.compras || [];
             logistica              = d.logistica || [];
@@ -170,30 +158,30 @@ function _escucharCambios() {
                 if (img) img.src = logoHeader;
                 if (fav) fav.href = logoHeader;
             }
- 
+
             // Guardar caché local (excepto campos por dispositivo)
             _guardarCacheLocal(d);
- 
+
             _cargadoDeFirestore = true;
- 
+
             // Actualizar toda la UI
             if (typeof actualizarUICompleta === 'function') actualizarUICompleta();
             if (typeof renderRuleta === 'function') renderRuleta();
             if (typeof renderRuletaCircular === 'function') renderRuletaCircular();
             if (typeof renderRifaCompras === 'function') renderRifaCompras();
             if (typeof renderRuletaCircularCompras === 'function') renderRuletaCircularCompras();
- 
+
             _setSyncStatus('ok');
         }, (error) => {
             console.error('Firestore error:', error);
             _setSyncStatus('error');
         });
 }
- 
+
 // ============================================================
 // GUARDAR EN FIRESTORE
 // ============================================================
- 
+
 // Llamada desde cualquier lugar que modifique datos
 function guardarEnDriveConDebounce() {
     if (!_cargadoDeFirestore) return;
@@ -201,17 +189,17 @@ function guardarEnDriveConDebounce() {
     clearTimeout(_debounce);
     _debounce = setTimeout(() => _ejecutarGuardado(), 600);
 }
- 
+
 function guardarEnDrive() {
     if (!_cargadoDeFirestore) return Promise.resolve();
     _pendienteGuardar = true;
     clearTimeout(_debounce);
     return _ejecutarGuardado();
 }
- 
+
 // Alias para compatibilidad
 function guardarEnFirestore() { return guardarEnDrive(); }
- 
+
 async function _ejecutarGuardado() {
     if (!_db || !_usuarioActual || !_cargadoDeFirestore) {
         _pendienteGuardar = false;
@@ -230,7 +218,7 @@ async function _ejecutarGuardado() {
         setTimeout(() => { _pendienteGuardar = false; }, 300);
     }
 }
- 
+
 function _construirDatos() {
     return {
         compras,
@@ -250,7 +238,7 @@ function _construirDatos() {
         timestamp:           firebase.firestore.FieldValue.serverTimestamp()
     };
 }
- 
+
 async function _subirDatosLocales() {
     const cl = JSON.parse(localStorage.getItem('compras') || '[]');
     const ll = JSON.parse(localStorage.getItem('logistica') || '[]');
@@ -269,7 +257,7 @@ async function _subirDatosLocales() {
         if (typeof actualizarUICompleta === 'function') actualizarUICompleta();
     }
 }
- 
+
 function _guardarCacheLocal(d) {
     localStorage.setItem('compras',                JSON.stringify(d.compras || []));
     localStorage.setItem('logistica',              JSON.stringify(d.logistica || []));
@@ -282,16 +270,16 @@ function _guardarCacheLocal(d) {
     localStorage.setItem('selectedTemplate',       d.selectedTemplate || 'plantilla1');
     localStorage.setItem('logoHeader',             d.logoHeader || '');
 }
- 
+
 // ============================================================
 // UI
 // ============================================================
- 
+
 function _mostrarOverlay(mostrar) {
     const el = document.getElementById('loginOverlay');
     if (el) el.style.display = mostrar ? 'flex' : 'none';
 }
- 
+
 function _setSyncStatus(estado) {
     const el = document.getElementById('syncStatus');
     if (!el) return;
@@ -304,4 +292,3 @@ function _setSyncStatus(estado) {
     el.innerHTML = map[estado] || map.ok;
     el.style.background = estado === 'error' ? 'rgba(200,50,50,0.8)' : 'rgba(0,0,0,0.6)';
 }
- 
