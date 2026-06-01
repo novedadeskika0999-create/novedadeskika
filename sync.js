@@ -86,12 +86,9 @@ function _cargarScript(src) {
 function loginGoogle() {
     const provider = new firebase.auth.GoogleAuthProvider();
     provider.setCustomParameters({ prompt: 'select_account' });
-    // Intentar popup primero, si falla usar redirect
     _auth.signInWithPopup(provider).catch((e) => {
-        if (e.code === 'auth/popup-blocked' || e.code === 'auth/cancelled-popup-request' || e.code === 'auth/popup-closed-by-user') {
-            _auth.signInWithRedirect(provider);
-        } else {
-            mostrarToast('Error al entrar: ' + e.message, 'error');
+        if (e.code !== 'auth/popup-closed-by-user') {
+            mostrarToast('Error: ' + e.message, 'error');
         }
     });
 }
