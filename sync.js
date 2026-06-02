@@ -1,3 +1,4 @@
+
 // sync.js — Firebase Firestore sincronización en tiempo real con PIN
 const FIREBASE_CONFIG = {
     apiKey: "AIzaSyCbhpjJ6gkK4CTc7c9C83alJHPSzTFzQ08",
@@ -266,4 +267,3 @@ function _setSyncStatus(e) {
     el.innerHTML = m[e] || m.ok;
     el.style.background = e === 'error' ? 'rgba(200,50,50,0.8)' : 'rgba(0,0,0,0.6)';
 }
- 
