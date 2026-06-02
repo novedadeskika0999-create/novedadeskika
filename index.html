@@ -5,25 +5,25 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Novedades Kika – Gestión Integral</title>
     <link id="favicon" rel="icon" href="" type="image/x-icon">
-
+ 
     <!-- Fuentes -->
     <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600&family=DM+Serif+Display:ital@0;1&display=swap" rel="stylesheet">
-
+ 
     <!-- Iconos -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-
+ 
     <!-- Librerías para PDF y Excel -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.25/jspdf.plugin.autotable.min.js"></script>
-
+ 
     <!-- Chart.js para gráficos -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.0.0"></script>
-
+ 
     <!-- Estilos -->
     <link rel="stylesheet" href="css/styles.css">
-
+ 
     <!-- Estilo adicional para filtros avanzados (no estaba en el CSS original) -->
     <style>
         .filtros-avanzados {
@@ -40,42 +40,8 @@
         }
     </style>
 </head>
-
+ 
 <body>
-
-<!-- Login Overlay -->
-<div id="loginOverlay" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.85); z-index:99999; flex-direction:column; align-items:center; justify-content:center; gap:20px;">
-    <div style="background:var(--card-bg, #fff); border-radius:16px; padding:40px; text-align:center; max-width:340px; width:90%; box-shadow:0 8px 32px rgba(0,0,0,0.3);">
-        <h2 style="margin:0 0 8px; font-size:1.4rem;">Novedades Kika</h2>
-        <p style="margin:0 0 24px; color:#666; font-size:0.9rem;">Ingresa tu PIN de acceso</p>
-        <input id="loginPin" type="password" inputmode="numeric" maxlength="4" placeholder="PIN de 4 dígitos"
-            style="width:100%; padding:12px; border:2px solid #ddd; border-radius:8px; font-size:1.2rem; text-align:center; letter-spacing:8px; box-sizing:border-box; margin-bottom:16px;"
-            onkeydown="if(event.key==='Enter') loginGoogle()">
-        <button onclick="loginGoogle()" style="background:#4285f4; color:white; border:none; border-radius:8px; padding:12px 24px; font-size:1rem; cursor:pointer; width:100%;">
-            Entrar
-        </button>
-    </div>
-</div>
-
-<!-- Barra de estado sync -->
-<div style="position:fixed; bottom:12px; right:12px; z-index:9999; display:flex; align-items:center; gap:12px;">
-    <span id="syncStatus" class="sync-ok" style="background:rgba(0,0,0,0.6); color:white; padding:6px 12px; border-radius:20px; font-size:0.78rem;">
-        <i class="fas fa-cloud"></i> Sincronizado
-    </span>
-    <div style="position:relative; display:inline-block;">
-        <span id="usuarioNombre" style="background:rgba(0,0,0,0.6); color:white; padding:6px 12px; border-radius:20px; font-size:0.78rem; cursor:pointer;" onclick="toggleMenuUsuario()" title="Opciones de cuenta">
-            <i class="fas fa-user"></i>
-        </span>
-        <div id="menuUsuario" style="display:none; position:absolute; bottom:36px; right:0; background:white; border-radius:10px; box-shadow:0 4px 16px rgba(0,0,0,0.2); overflow:hidden; min-width:160px; z-index:99999;">
-            <button onclick="cambiarCuentaGoogle()" style="display:block; width:100%; padding:10px 16px; border:none; background:none; cursor:pointer; text-align:left; font-size:0.85rem; border-bottom:1px solid #eee;">
-                <i class="fas fa-sync" style="margin-right:8px; color:#4285f4;"></i> Cambiar cuenta
-            </button>
-            <button onclick="logoutGoogle()" style="display:block; width:100%; padding:10px 16px; border:none; background:none; cursor:pointer; text-align:left; font-size:0.85rem; color:#e53e3e;">
-                <i class="fas fa-sign-out-alt" style="margin-right:8px;"></i> Cerrar sesión
-            </button>
-        </div>
-    </div>
-</div>
 <!-- Toast Container -->
     <div id="toast-container"></div>
     
@@ -83,7 +49,7 @@
     <button id="install-pwa-btn" title="Instalar App">
         <i class="fas fa-download"></i>
     </button>
-
+ 
     <!-- Modal para plantillas de factura -->
     <div id="templateModal" class="modal">
         <div class="modal-content">
@@ -98,7 +64,7 @@
             </div>
         </div>
     </div>
-
+ 
     <!-- Modal para visualización de plantillas -->
     <div id="templatePreviewModal" class="modal">
         <div class="modal-content" style="max-width: 1200px;">
@@ -117,7 +83,7 @@
             </div>
         </div>
     </div>
-
+ 
     <!-- Modal para secuencia de factura -->
     <div id="secFacturaModal" class="modal">
         <div class="modal-content">
@@ -141,7 +107,7 @@
             </div>
         </div>
     </div>
-
+ 
     <!-- Modal para manual de usuario -->
     <div id="manualModal" class="modal">
         <div class="modal-content">
@@ -154,7 +120,7 @@
             </div>
         </div>
     </div>
-
+ 
     <!-- Modal para confirmaciones -->
     <div id="confirmModal" class="modal">
         <div class="modal-content">
@@ -167,7 +133,7 @@
             </div>
         </div>
     </div>
-
+ 
     <!-- -- HEADER -- -->
     <header>
         <div class="header-inner">
@@ -195,7 +161,7 @@
             </div>
         </div>
     </header>
-
+ 
     <!-- -- NAV -- -->
     <div class="nav-wrapper">
         <nav>
@@ -211,7 +177,7 @@
             </ul>
         </nav>
     </div>
-
+ 
     <div class="main-container"><!-- -- LOGÍSTICA -- -->
         <div id="logistica" class="tab-content">
             <div class="section-header">
@@ -225,7 +191,7 @@
                     </button>
                 </div>
             </div>
-
+ 
             <div class="card">
                 <div class="card-title">Nuevo Producto</div>
                 <form id="formLogistica" onkeydown="manejarTecladoLogistica(event)">
@@ -281,7 +247,7 @@
                     </div>
                 </form>
             </div>
-
+ 
             <div class="filtros-avanzados">
                 <div class="form-group">
                     <label for="buscadorProducto">Buscar producto</label>
@@ -324,7 +290,7 @@
                 </button>
             </div>
             <div id="resultadoBusquedaProducto" class="result-box"></div>
-
+ 
             <p style="font-size:0.8rem; font-weight:600; text-transform:uppercase; letter-spacing:0.07em; color:var(--text-muted); margin: 20px 0 8px;">
                 <i class="fas fa-list" style="margin-right:6px;"></i><span id="txtProductosEnLogistica">Productos en Logística</span>
             </p>
@@ -347,7 +313,7 @@
                     <tbody id="tbodyLogistica"></tbody>
                 </table>
             </div>
-
+ 
             <div class="stats-grid" id="totalesLogistica">
                 <div class="stat-card">
                     <div class="stat-label"><i class="fas fa-coins"></i><span id="txtTotalGanancias">Total Ganancias</span></div>
@@ -375,7 +341,7 @@
                 </div>
             </div>
         </div>
-
+ 
         <!-- -- COMPRAS -- -->
         <div id="compras" class="tab-content">
             <div class="section-header">
@@ -389,7 +355,7 @@
                     </button>
                 </div>
             </div>
-
+ 
             <div class="card">
                 <div class="card-title">Nueva Compra</div>
                 <form id="formCompras" onkeydown="manejarTecladoCompras(event)">
@@ -432,7 +398,7 @@
                     </div>
                 </form>
             </div>
-
+ 
             <div class="flex-row" style="margin-bottom: 16px; justify-content: space-between;">
                 <div>
                     <p style="font-size:0.8rem; font-weight:600; text-transform:uppercase; letter-spacing:0.07em; color:var(--text-muted); margin-bottom:8px;">
@@ -454,7 +420,7 @@
                     </div>
                 </div>
             </div>
-
+ 
             <div class="table-wrapper">
                 <table id="tablaCompradores">
                     <thead>
@@ -474,9 +440,9 @@
                     <tbody id="tbodyCompradores"></tbody>
                 </table>
             </div>
-
+ 
             <div class="divider"></div>
-
+ 
             <div class="flex-row" style="justify-content: space-between; align-items: center; margin-bottom: 12px;">
                 <p style="font-size:0.95rem; font-weight:500;">
                     <i class="fas fa-money-bill-wave" style="margin-right:8px; color:var(--accent);"></i>
@@ -484,7 +450,7 @@
                     <strong id="totalVentasEmpresa" style="color:var(--accent); margin-left:8px; font-size:1.1rem;">$0.00</strong>
                 </p>
             </div>
-
+ 
             <div class="flex-row" style="margin-bottom:8px;">
                 <div class="search-bar">
                     <i class="fas fa-search"></i>
@@ -496,7 +462,7 @@
             </div>
             <div id="resultadoBusquedaProductoCompras" class="result-box"></div>
         </div>
-
+ 
         <!-- -- RESUMEN DE COMPRADORAS -- -->
         <div id="resumenCompradoras" class="tab-content">
             <div class="section-header">
@@ -510,7 +476,7 @@
                     </button>
                 </div>
             </div>
-
+ 
             <div class="counters-row">
                 <div class="counter-chip">
                     <i class="fas fa-check-circle" style="color:var(--success);"></i>
@@ -528,7 +494,7 @@
                     <span class="chip-num" id="contadorFaltantes">0</span>
                 </div>
             </div>
-
+ 
             <div class="flex-row" style="margin-bottom:16px;">
                 <label style="display:flex; align-items:center; gap:8px; cursor:pointer; font-size:0.88rem; font-weight:500; color:var(--text-secondary);">
                     <input type="checkbox" id="mostrarSoloNoMarcados" onchange="filtrarResumenCompradoras()">
@@ -539,7 +505,7 @@
                     <input type="text" class="search-input" id="buscadorResumen" placeholder="Buscar compradora..." onkeyup="filtrarResumenCompradoras()" onkeydown="manejarTeclaBusqueda(event, 'buscadorResumen', 'filtrarResumenCompradoras')">
                 </div>
             </div>
-
+ 
             <div class="table-wrapper">
                 <table id="tablaResumenCompradoras">
                     <thead>
@@ -557,7 +523,7 @@
                     <tbody id="tbodyResumenCompradoras"></tbody>
                 </table>
             </div>
-
+ 
             <!-- Resumen por Producto -->
             <div class="card" style="margin-top: 20px;">
                 <div class="section-header" style="margin-bottom: 0; padding-bottom: 0; border-bottom: none;">
@@ -584,7 +550,7 @@
                     </table>
                 </div>
             </div>
-
+ 
             <!-- Gráfico de Ventas por Producto -->
             <div class="card" style="margin-top: 20px;">
                 <div class="card-title">Ventas por Producto</div>
@@ -593,7 +559,7 @@
                 </div>
             </div>
         </div>
-
+ 
         <!-- -- RULETA COMPARTIDAS -- -->
         <div id="rifaCompartidas" class="tab-content">
             <div class="section-header">
@@ -602,14 +568,14 @@
                     <h2><span id="txtTituloRifaCompartidas">Ruleta Compartidas</span></h2>
                 </div>
             </div>
-
+ 
             <div class="ruleta-customization">
                 <h3><i class="fas fa-palette" style="margin-right: 8px;"></i>Personalizar Ruleta</h3>
                 <div class="color-options" id="colorOptionsRifaCompartidas">
                     <!-- Los colores se cargarán dinámicamente -->
                 </div>
             </div>
-
+ 
             <form id="formRifa" onkeydown="manejarTecladoRifa(event)" onsubmit="agregarParticipante(); return false;" style="display:flex; gap:10px; max-width:480px; margin:0 auto 20px;">
                 <input type="text" id="nombreParticipante" placeholder="Nombre del participante" required style="flex:1;" oninput="autocompletarParticipante(this)" onkeydown="manejarAutocompletarParticipante(event)">
                 <div id="sugerencias-participante" class="autocomplete-items"></div>
@@ -617,7 +583,7 @@
                     <i class="fas fa-plus"></i> <span id="txtAgregarParticipante">Agregar</span>
                 </button>
             </form>
-
+ 
             <!-- Ruleta Circular -->
             <div class="ruleta-main-container">
                 <div class="ruleta-container-wrapper">
@@ -633,7 +599,7 @@
                     </div>
                 </div>
             </div>
-
+ 
             <div class="ruleta-buttons">
                 <button onclick="spinRoulette('gana')" id="btnGana" class="btn-success" style="padding:12px 28px;">
                     <i class="fas fa-trophy"></i> <span id="txtGana">Gana</span>
@@ -646,7 +612,7 @@
                 </button>
             </div>
         </div>
-
+ 
         <!-- -- RULETA COMPRAS -- -->
         <div id="rifaCompras" class="tab-content">
             <div class="section-header">
@@ -655,14 +621,14 @@
                     <h2><span id="txtTituloRifaCompras">Ruleta Compras</span></h2>
                 </div>
             </div>
-
+ 
             <div class="ruleta-customization">
                 <h3><i class="fas fa-palette" style="margin-right: 8px;"></i>Personalizar Ruleta</h3>
                 <div class="color-options" id="colorOptionsRifaCompras">
                     <!-- Los colores se cargarán dinámicamente -->
                 </div>
             </div>
-
+ 
             <div class="ruleta-main-container">
                 <div class="ruleta-container-wrapper">
                     <div class="ruleta-canvas-wrapper">
@@ -677,7 +643,7 @@
                     </div>
                 </div>
             </div>
-
+ 
             <div class="ruleta-buttons">
                 <button onclick="spinRouletteCompras('gana')" id="btnGiraGana" class="btn-success" style="padding:12px 28px;">
                     <i class="fas fa-trophy"></i> <span id="txtGiraGana">Gira Gana</span>
@@ -690,7 +656,7 @@
                 </button>
             </div>
         </div>
-
+ 
         <!-- -- CUENTA -- -->
         <div id="cuenta" class="tab-content">
             <div class="section-header">
@@ -699,7 +665,7 @@
                     <h2><span id="txtTituloCuenta">Cuenta de Compradoras</span></h2>
                 </div>
             </div>
-
+ 
             <div class="flex-row" style="margin-bottom:20px;">
                 <div class="search-bar">
                     <i class="fas fa-search"></i>
@@ -719,7 +685,7 @@
                     <i class="fas fa-hashtag"></i> <span>Configurar Secuencia</span>
                 </button>
             </div>
-
+ 
             <div class="descarga-masiva-container">
                 <h3><i class="fas fa-download" style="margin-right: 10px; color: var(--accent);"></i>Descargar Cuentas en Masivo</h3>
                 <div class="form-group">
@@ -740,7 +706,7 @@
                     </button>
                 </div>
             </div>
-
+ 
             <p style="font-size:0.8rem; font-weight:600; text-transform:uppercase; letter-spacing:0.07em; color:var(--text-muted); margin-bottom:8px;">
                 <i class="fas fa-list" style="margin-right:6px;"></i><span id="txtListaCompradoras">Lista de Compradoras</span>
             </p>
@@ -758,7 +724,7 @@
                 </table>
             </div>
         </div>
-
+ 
         <!-- -- DASHBOARD -- -->
         <div id="dashboard" class="tab-content">
             <div class="section-header">
@@ -787,7 +753,7 @@
                     <div class="stat-value" id="productoMasVendidoDashboard">—</div>
                 </div>
             </div>
-
+ 
             <!-- Gráficos -->
             <div class="dashboard-grid">
                 <div class="chart-card">
@@ -816,7 +782,7 @@
                 </div>
             </div>
         </div>
-
+ 
         <!-- -- AJUSTES -- -->
         <div id="ajustes" class="tab-content">
             <div class="section-header">
@@ -825,7 +791,7 @@
                     <h2><span id="txtTituloAjustes">Ajustes</span></h2>
                 </div>
             </div>
-
+ 
             <div class="settings-group">
                 <h3><i class="fas fa-language"></i><span id="txtIdioma">Idioma</span></h3>
                 <div class="flex-row">
@@ -834,7 +800,7 @@
                     <button onclick="cambiarIdioma('fr')" class="btn-secondary"><span id="txtFrances">Français</span></button>
                 </div>
             </div>
-
+ 
             <div class="settings-group">
                 <h3><i class="fas fa-image"></i><span id="txtLogoHeader">Logo del Header</span></h3>
                 <input type="file" id="logoInput" accept="image/*" style="display:none;">
@@ -847,7 +813,7 @@
                     </button>
                 </div>
             </div>
-
+ 
             <div class="settings-group">
                 <h3><i class="fas fa-palette"></i><span>Tema de Colores</span></h3>
                 <div class="flex-row" style="flex-wrap: wrap; gap: 10px;">
@@ -862,7 +828,7 @@
                     <button onclick="cambiarTema('gray')" class="btn-secondary" style="background: #4b5563; color: white;" title="Gris">Gris</button>
                 </div>
             </div>
-
+ 
             <div class="settings-group">
                 <h3><i class="fas fa-cloud"></i> Backup Automático</h3>
                 <div class="flex-row" style="flex-direction: column; gap: 10px;">
@@ -880,7 +846,7 @@
                     </button>
                 </div>
             </div>
-
+ 
             <div class="settings-group">
                 <h3><i class="fas fa-trash-alt" style="color:var(--danger);"></i><span id="txtZonaPeligro">Zona de Peligro</span></h3>
                 <button id="btnBorrarTodo" onclick="confirmarBorrarTodo()" class="btn-danger">
@@ -889,35 +855,21 @@
             </div>
         </div>
     </div>
-
-    <input type="file" id="inputCarga" style="display:none" accept=".json,.xlsx,.xls" onchange="cargarInformacion(event)">
-    <input type="file" id="backupInput" style="display:none" accept=".json,.xlsx,.xls" onchange="restaurarBackupDesdeArchivo(event)">
-
+ 
+    <input type="file" id="inputCarga" style="display:none" accept=".json" onchange="cargarInformacion(event)">
+    <input type="file" id="backupInput" style="display:none" accept=".json" onchange="restaurarBackupDesdeArchivo(event)">
+ 
     <!-- Scripts — orden importa (config primero, luego dependencias) -->
-    <script src="js/config.js"></script>
-    <script src="js/utils.js"></script>
-    <script src="js/db.js"></script>
-    <script src="js/ui.js"></script>
-    <script src="js/logistica.js"></script>
-    <script src="js/compras.js"></script>
-    <script src="js/resumen.js"></script>
-    <script src="js/ruleta.js"></script>
-    <script src="js/cuenta.js"></script>
-    <script>
-        function toggleMenuUsuario() {
-            const menu = document.getElementById('menuUsuario');
-            menu.style.display = menu.style.display === 'none' ? 'block' : 'none';
-            setTimeout(() => {
-                document.addEventListener('click', function handler(e) {
-                    if (!e.target.closest('#menuUsuario') && e.target.id !== 'usuarioNombre') {
-                        menu.style.display = 'none';
-                    }
-                    document.removeEventListener('click', handler);
-                });
-            }, 100);
-        }
-    </script>
-    <script src="js/sync.js"></script>
-    <script src="js/init.js"></script>
+    <script src="js/config.js?v=1780366915"></script>
+    <script src="js/utils.js?v=1780366915"></script>
+    <script src="js/db.js?v=1780366915"></script>
+    <script src="js/ui.js?v=1780366915"></script>
+    <script src="js/logistica.js?v=1780366915"></script>
+    <script src="js/compras.js?v=1780366915"></script>
+    <script src="js/resumen.js?v=1780366915"></script>
+    <script src="js/ruleta.js?v=1780366915"></script>
+    <script src="js/cuenta.js?v=1780366915"></script>
+    <script src="js/sync.js?v=1780366915"></script>
+    <script src="js/init.js?v=1780366915"></script>
 </body>
 </html>
