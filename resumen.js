@@ -1,4 +1,3 @@
-Resumen · JS
 // ============================================================
 // resumen.js — Resumen de compradoras, por producto, dashboard, gráficos
 // ============================================================
