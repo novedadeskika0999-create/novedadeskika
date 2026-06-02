@@ -1,8 +1,7 @@
-// v2
 // ============================================================
 // resumen.js — Resumen de compradoras, por producto, dashboard, gráficos
 // ============================================================
-
+ 
         function actualizarResumenCompradoras() {
             const resumen = {};
             compras.forEach(c => {
@@ -13,69 +12,69 @@
                 resumen[c.comprador].dinero += c.precioTotal;
                 resumen[c.comprador].tamanos.push(c.tamano);
             });
-
+ 
             const tbody = document.getElementById('tbodyResumenCompradoras');
             tbody.innerHTML = '';
             let maxDin = 0;
-
+ 
             for (let k in resumen) {
                 if (resumen[k].dinero > maxDin) maxDin = resumen[k].dinero;
             }
-
+ 
             for (let k in resumen) {
                 const tr = document.createElement('tr');
                 if (resumenMarcado[k]) tr.classList.add('resumen-seleccionado');
-
+ 
                 const tdChk = document.createElement('td');
                 const chk = document.createElement('input');
                 chk.type = 'checkbox';
                 chk.checked = resumenMarcado[k] || false;
                 chk.onchange = () => toggleMarcadoResumen(k, chk.checked);
                 tdChk.appendChild(chk);
-
+ 
                 const tdNom = document.createElement('td');
                 tdNom.textContent = escapeHtml(k);
-
+ 
                 const tdDin = document.createElement('td');
                 tdDin.textContent = `$${resumen[k].dinero.toFixed(2)}`;
-
+ 
                 const tdCant = document.createElement('td');
                 tdCant.textContent = resumen[k].cantidad;
-
+ 
                 const tdTam = document.createElement('td');
                 tdTam.textContent = determinarTamanoBolsa(resumen[k].tamanos, resumen[k].cantidad);
-
+ 
                 const tdMej = document.createElement('td');
                 if (resumen[k].dinero === maxDin && maxDin > 0) {
                     tdMej.innerHTML = "<span class='mejor'>⭐</span>";
                 }
-
+ 
                 const tdDesc = document.createElement('td');
                 tdDesc.innerHTML = cuentasGeneradas.includes(k)
                     ? `<span class="badge badge-green">${escapeHtml(idiomas[idiomaActual].txtSi)}</span>`
                     : `<span class="badge badge-red">${escapeHtml(idiomas[idiomaActual].txtNo)}</span>`;
-
+ 
                 const tdAcciones = document.createElement('td');
                 tdAcciones.innerHTML = `
                     <button onclick="descargarCuenta('${escapeHtml(k)}')" class="btn-primary btn-sm">
                         <i class="fas fa-file-pdf"></i> ${idiomas[idiomaActual].txtDescargar}
                     </button>
                 `;
-
+ 
                 tr.append(tdChk, tdNom, tdDin, tdCant, tdTam, tdMej, tdDesc, tdAcciones);
                 tbody.appendChild(tr);
             }
-
+ 
             actualizarContadores();
             actualizarTablaCuentas();
         }
-
+ 
         function determinarTamanoBolsa(tamanos, cantidadTotal) {
             if (tamanos.includes('grande') || cantidadTotal > 10) return idiomas[idiomaActual].txtTamanoGrande;
             if (tamanos.includes('mediano') || cantidadTotal > 5) return idiomas[idiomaActual].txtTamanoMediano;
             return idiomas[idiomaActual].txtTamanoPequeno;
         }
-
+ 
         function filtrarResumenCompradoras() {
             const q = document.getElementById('buscadorResumen').value.toLowerCase();
             const soloNoMarcados = document.getElementById('mostrarSoloNoMarcados').checked;
@@ -85,7 +84,7 @@
                 row.style.display = (nombre.includes(q) && (!soloNoMarcados || !marcado)) ? '' : 'none';
             });
         }
-
+ 
         function toggleMarcadoResumen(k, estado) {
             compras.forEach(c => {
                 if (c.comprador === k) c.marcado = estado;
@@ -97,7 +96,7 @@
             actualizarResumenCompradoras();
             actualizarTablaCuentas();
         }
-
+ 
         function actualizarContadores() {
             const compradores = [...new Set(compras.map(c => c.comprador))];
             const marcados = compradores.filter(c => resumenMarcado[c]).length;
@@ -106,7 +105,7 @@
             document.getElementById('contadorNoMarcados').textContent = noMarcados;
             document.getElementById('contadorFaltantes').textContent = noMarcados;
         }
-
+ 
         function exportarResumenCompradorasAExcel() {
             const resumen = {};
             compras.forEach(c => {
@@ -121,21 +120,21 @@
                 resumen[c.comprador].totalProductos += c.cantidad;
                 resumen[c.comprador].productos.push(`${c.producto} (${c.cantidad})`);
             });
-
+ 
             const datosExcel = Object.entries(resumen).map(([comprador, datos]) => ({
                 Compradora: comprador,
                 "Total en Dinero": datos.totalDinero,
                 "Total Productos": datos.totalProductos,
                 Productos: datos.productos.join(', ')
             }));
-
+ 
             const wb = XLSX.utils.book_new();
             const ws = XLSX.utils.json_to_sheet(datosExcel);
             XLSX.utils.book_append_sheet(wb, ws, "Resumen Compradoras");
             XLSX.writeFile(wb, "Resumen_Compradoras.xlsx");
             mostrarToast('Resumen de compradoras exportado a Excel correctamente.', 'success');
         }
-
+ 
         // --- Funciones de Resumen por Producto ---
         function actualizarResumenPorProducto() {
             const resumen = {};
@@ -157,10 +156,10 @@
                     resumen[c.producto].categoria = producto.categoria;
                 }
             });
-
+ 
             const tbody = document.getElementById('tbodyResumenProducto');
             tbody.innerHTML = '';
-
+ 
             for (const [producto, datos] of Object.entries(resumen)) {
                 const row = document.createElement('tr');
                 row.innerHTML = `
@@ -172,10 +171,10 @@
                 `;
                 tbody.appendChild(row);
             }
-
+ 
             actualizarGraficoVentasPorProducto();
         }
-
+ 
         function exportarResumenProductoAExcel() {
             const resumen = {};
             compras.forEach(c => {
@@ -190,25 +189,25 @@
                 resumen[c.producto].total += c.precioTotal;
                 resumen[c.producto].compradores.add(c.comprador);
             });
-
+ 
             const datosExcel = Object.entries(resumen).map(([producto, datos]) => ({
                 Producto: producto,
                 "Cantidad Vendida": datos.cantidad,
                 Total: datos.total,
                 Compradores: [...datos.compradores].join(', ')
             }));
-
+ 
             const wb = XLSX.utils.book_new();
             const ws = XLSX.utils.json_to_sheet(datosExcel);
             XLSX.utils.book_append_sheet(wb, ws, "Resumen por Producto");
             XLSX.writeFile(wb, "Resumen_Por_Producto.xlsx");
             mostrarToast('Resumen por producto exportado a Excel correctamente.', 'success');
         }
-
+ 
         // --- Funciones de Gráfico ---
         function actualizarGraficoVentasPorProducto() {
             const ctx = document.getElementById('graficoVentasPorProducto').getContext('2d');
-
+ 
             const ventasPorProducto = {};
             compras.forEach(c => {
                 if (!ventasPorProducto[c.producto]) {
@@ -216,17 +215,17 @@
                 }
                 ventasPorProducto[c.producto] += c.cantidad;
             });
-
+ 
             const productos = Object.keys(ventasPorProducto);
             const cantidades = Object.values(ventasPorProducto);
-
+ 
             if (graficoVentas) {
                 graficoVentas.destroy();
             }
-
+ 
             // Obtener el color del tema actual
             const accentColor = getComputedStyle(document.documentElement).getPropertyValue('--accent').trim();
-
+ 
             graficoVentas = new Chart(ctx, {
                 type: 'bar',
                 data: {
@@ -276,14 +275,14 @@
                 plugins: [ChartDataLabels]
             });
         }
-
+ 
         // --- Funciones de Dashboard ---
         function actualizarDashboard() {
             // Métricas principales
             const totalVentas = compras.reduce((sum, c) => sum + c.precioTotal, 0);
             const productosVendidos = compras.reduce((sum, c) => sum + c.cantidad, 0);
             const compradoresActivos = [...new Set(compras.map(c => c.comprador))].length;
-
+ 
             // Producto más vendido
             const ventasPorProducto = {};
             compras.forEach(c => {
@@ -297,28 +296,28 @@
                     productoMasVendido = producto;
                 }
             }
-
+ 
             document.getElementById('totalVentasDashboard').textContent = `$${totalVentas.toFixed(2)}`;
             document.getElementById('productosVendidosDashboard').textContent = productosVendidos;
             document.getElementById('compradoresActivosDashboard').textContent = compradoresActivos;
             document.getElementById('productoMasVendidoDashboard').textContent = escapeHtml(productoMasVendido);
-
+ 
             // Gráfico de ventas por producto (Dashboard)
             actualizarGraficoVentasPorProductoDashboard();
-
+ 
             // Gráfico de ventas por día
             actualizarGraficoVentasPorDia();
-
+ 
             // Gráfico de top 5 productos
             actualizarGraficoTopProductos();
-
+ 
             // Gráfico de top 5 compradores
             actualizarGraficoTopCompradores();
         }
-
+ 
         function actualizarGraficoVentasPorProductoDashboard() {
             const ctx = document.getElementById('graficoVentasPorProductoDashboard').getContext('2d');
-
+ 
             const ventasPorProducto = {};
             compras.forEach(c => {
                 if (!ventasPorProducto[c.producto]) {
@@ -326,16 +325,16 @@
                 }
                 ventasPorProducto[c.producto] += c.precioTotal;
             });
-
+ 
             const productos = Object.keys(ventasPorProducto).slice(0, 5); // Top 5
             const totales = productos.map(p => ventasPorProducto[p]);
-
+ 
             if (graficoVentasDashboard) {
                 graficoVentasDashboard.destroy();
             }
-
+ 
             const accentColor = getComputedStyle(document.documentElement).getPropertyValue('--accent').trim();
-
+ 
             graficoVentasDashboard = new Chart(ctx, {
                 type: 'pie',
                 data: {
@@ -393,10 +392,10 @@
                 plugins: [ChartDataLabels]
             });
         }
-
+ 
         function actualizarGraficoVentasPorDia() {
             const ctx = document.getElementById('graficoVentasPorDia').getContext('2d');
-
+ 
             // Agrupar compras por día
             const ventasPorDia = {};
             compras.forEach(c => {
@@ -404,16 +403,16 @@
                 const dia = fecha.toLocaleDateString('es-ES', { weekday: 'short', month: 'short', day: 'numeric' });
                 ventasPorDia[dia] = (ventasPorDia[dia] || 0) + c.precioTotal;
             });
-
+ 
             const dias = Object.keys(ventasPorDia).sort();
             const totales = dias.map(dia => ventasPorDia[dia]);
-
+ 
             if (graficoVentasPorDia) {
                 graficoVentasPorDia.destroy();
             }
-
+ 
             const accentColor = getComputedStyle(document.documentElement).getPropertyValue('--accent').trim();
-
+ 
             graficoVentasPorDia = new Chart(ctx, {
                 type: 'line',
                 data: {
@@ -455,29 +454,29 @@
                 }
             });
         }
-
+ 
         function actualizarGraficoTopProductos() {
             const ctx = document.getElementById('graficoTopProductos').getContext('2d');
-
+ 
             const ventasPorProducto = {};
             compras.forEach(c => {
                 ventasPorProducto[c.producto] = (ventasPorProducto[c.producto] || 0) + c.cantidad;
             });
-
+ 
             // Ordenar por cantidad vendida (descendente) y tomar top 5
             const productosOrdenados = Object.entries(ventasPorProducto)
                 .sort((a, b) => b[1] - a[1])
                 .slice(0, 5);
-
+ 
             const productos = productosOrdenados.map(p => p[0]);
             const cantidades = productosOrdenados.map(p => p[1]);
-
+ 
             if (graficoTopProductos) {
                 graficoTopProductos.destroy();
             }
-
+ 
             const accentColor = getComputedStyle(document.documentElement).getPropertyValue('--accent').trim();
-
+ 
             graficoTopProductos = new Chart(ctx, {
                 type: 'bar',
                 data: {
@@ -521,29 +520,29 @@
                 plugins: [ChartDataLabels]
             });
         }
-
+ 
         function actualizarGraficoTopCompradores() {
             const ctx = document.getElementById('graficoTopCompradores').getContext('2d');
-
+ 
             const gastosPorComprador = {};
             compras.forEach(c => {
                 gastosPorComprador[c.comprador] = (gastosPorComprador[c.comprador] || 0) + c.precioTotal;
             });
-
+ 
             // Ordenar por gasto (descendente) y tomar top 5
             const compradoresOrdenados = Object.entries(gastosPorComprador)
                 .sort((a, b) => b[1] - a[1])
                 .slice(0, 5);
-
+ 
             const compradores = compradoresOrdenados.map(c => c[0]);
             const totales = compradoresOrdenados.map(c => c[1]);
-
+ 
             if (graficoTopCompradores) {
                 graficoTopCompradores.destroy();
             }
-
+ 
             const accentColor = getComputedStyle(document.documentElement).getPropertyValue('--accent').trim();
-
+ 
             graficoTopCompradores = new Chart(ctx, {
                 type: 'bar',
                 data: {
@@ -587,5 +586,5 @@
                 plugins: [ChartDataLabels]
             });
         }
-
+ 
         // --- Funciones de Ruleta ---
